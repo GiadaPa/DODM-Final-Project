@@ -5,33 +5,34 @@
 """
 
 ### Libraries
+from cmath import isnan
 import gurobipy as gp
 from gurobipy import *
 import pandas as pd
 import numpy as np
-
+import copy
 
 
 ### Sets and parameters
 
 ## variables beginning in "input_request" denote the type of expected inputs, this is fed through methods XXX to dynamically read the input file
 input_request_object_classes = {
-    "PERSON_ID" : {
-        "NAME" : "PEOPLE",
+    "PEOPLE" : {
+        "PERSON_ID" : "ID",
         "HOME_ID" : "Int",
         "HOME_LAT" : "Float",
         "HOME_LON" : "Float",
         "BUDGET" : "INT",
         "MAX_NB_CHANGES_TRANSPORT" : "INT"},
 
-    "PLACE_ID" : {
-        "NAME" : "PLACES",
+    "PLACES" : {
+        "PLACE_ID" : "ID",
         "PLACE_LAT" : "Float",
         "PLACE_LON" : "Float",
         "MAX_NB_PEOPLE" : "Int"},
     
-    "TASK_ID" : {
-        "NAME" : "TASKS",
+    "TASKS" : {
+        "TASK_ID" : "ID",
         "PERSON_ID" : "Int",
         "PLACE_ID" : "Int",
         "COST" : "Int",
@@ -42,32 +43,31 @@ input_request_object_classes = {
         "EXTRA_SERVICE_TIME" : "Int",
         "PENALTY" : "Int"},
     
-    "BIKE_STATION_ID" : {
-        "NAME" : "BIKE_STATIONS",
+    "BIKE_STATIONS" : {
+        "BIKE_STATION_ID" : "ID",
         "BIKE_STATION_LAT" : "Float",
         "BIKE_STATION_LON" : "Float",
         "NB_AVAILABLE_BIKES" : "Int",
         "NB_FREE_SPOTS" : "Int"},
     
-    "LINE_ID" : {
-        "NAME" : "BUS_LINES",
+    "BUS_LINES" : {
+        "LINE_ID" : "ID",
         "START_TIME" : "Int",
         "FREQUENCY" : "Int",
         "MAX_NB_PEOPLE" : "Int"},
     
-    "BUS_STOP_ID" : {
-        "NAME" : "BUS_STOPS",
+    "BUS_STOPS" : {
+        "BUS_STOP_ID" : "ID",
         "BUS_STOP_LAT" : "Float",
         "BUS_STOP_LON" : "Float"}
     }
 
 input_request_links = {
-    "BUS_STOP_ID" : {
-        "NAME" : "BUS_STOP_TO_LINE",
+    "BUS_STOP_TO_LINE" : {
+        "BUS_STOP_ID" : "Int",
         "BUS_LINE_ID" : "Int"},
     
-    "NODE_ID" : {
-        "NAME" : "NODE_TRAVEL_INFO",
+    "NODE_TRAVEL_INFO" : {
         "NODE_ID" : "Int",
         "MODE" : "String",
         "DISTANCE" : "Float",
@@ -107,6 +107,11 @@ input_object_classes = {}
 input_links = {}
 input_global = {}
 
+#update_data_input(data_input_table, value, format)
+#def update_data_input(data_input_table, value_name, value, format, object_name = "None", object_classes = input_object_classes.keys()):
+    
+    
+    
 
 
 
@@ -114,7 +119,7 @@ input_global = {}
 # Method reads first line of each paragraph to understand which class the input belongs to, 
 # then uses/references the input_request dictionaries to understand the expect data and format within that paragraph
 def horizon():
-    input_request_names = list(input_request_object_classes.keys()) + list(input_request_links.keys()) + list(input_request_global.keys())
+    input_request_names = list(input_request_object_classes.keys()) + list(input_request_global.keys())
     with txtFile as f:
         lines = f.readlines()
         line_qty = len(lines)
@@ -143,38 +148,37 @@ def horizon():
                 # if input in input_request_object_classes
                 if lines[current_line].split()[0] in input_request_object_classes.keys():
                     
+                    current_class_name = copy.deepcopy(lines[current_line].split()[0])
                     input_class = input_request_object_classes[lines[current_line].split()[0]]
-                    ID = int(lines[current_line].split()[1])
-                    #if not input_class["NAME"] in input_object_classes.keys():
-                    #    input_object_classes[input_class["NAME"]] = {}
-                    
-                    #READ ALL INFO ON CLASS INSTANCE
-                    reading_class_instance = True
+                    reading_current_class = True
                     current_line += 1
-                    while reading_class_instance == True:
+                    
+                    #loop for reading all values of class X                    
+                    while reading_current_class == True:
                         
-                        #check for end of class instance
-                        if lines[current_line] == "\n":
+                        #detect if the next class has arrived
+                        if lines[current_line].split()[0] in input_request_names or (lines[current_line].split()[0] == "BUS_STOP_ID"  and lines[current_line].split()[1] == "BUS_STOP_ID") or (lines[current_line].split()[0] == "NODE_ID"    and lines[current_line].split()[1] == "NODE_ID"):
+                            reading_current_class = False
+                            continue
+                        
+                        #detect if there is an ID for class
+                        try:
+                            if input_class[lines[current_line].split()[0]] == "ID":
+                                ID = lines[current_line].split()[1]
+                        except IndexError as err:
+                            ID = np.nan
+                        
+                        #read instance of class
+                        reading_class_instance = True
+                        while reading_class_instance == True:
+                            #check for end of class instance
+                            if lines[current_line] == "\n":
+                                reading_class_instance = False
+                                current_line += 1
+                                continue
+                            
+                            input_object_classes = update_input_table(input_object_classes, input_value=lines[current_line].split()[1], input_name=lines[current_line].split()[0], input_class = input_class, ID = ID)
                             current_line += 1
-                            break
-                        
-                        if not lines[current_line].split()[0] in input_object_classes.keys():
-                            input_object_classes[lines[current_line].split()[0]] = {}
-                        
-                        match input_class[lines[current_line].split()[0]]:
-                            case "Int":
-                                input_var = int(lines[current_line].split()[1])
-                            case "ID":
-                                input_var = int(lines[current_line].split()[1])
-                            case "Float":
-                                input_var = float(lines[current_line].split()[1])
-                            case "String":
-                                input_var = lines[current_line].split()[1]
-                            case _:
-                                raise Exception("Error: format " + input_class[lines[current_line].split()[0]] + " not found")
-
-                        input_object_classes[lines[current_line].split()[0]][ID] = input_var
-                        current_line += 1
                         
                 # if input in input_request_global
                 elif lines[current_line].split()[0] in input_request_global.keys():
@@ -189,33 +193,31 @@ def horizon():
             else:
                 current_line += 1
                     
-                
+def update_input_table(input_table, input_value=lines[current_line].split()[1], input_name=lines[current_line].split()[0], input_class = np.nan, ID = np.nan):
+    
+    if not input_name in input_table.keys():
+        input_table[input_name] = {}
+
+    match input_class[input_name]:
+        case "Int":
+            input_var = int(input_value)
+        case "ID":
+            input_var = int(input_value)
+        case "Float":
+            input_var = float(input_value)
+        case "String":
+            input_var = input_value
+        case _:
+            raise Exception("Error: format " + input_class[input_name] + " not found")
+
+    if pd.isnan(ID):
+        input_table[input_name] = input_var
+    else:
+        input_table[input_name][int(ID)] = input_var
+    
+    return input_table
                     
-                        
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-                    
-            
-            
-            
-            
-                
-                    
-            
-            
-            
-            
-        
-        #data_inputs.update({'start': to_hours(line.split()[1]), 'end': to_hours(line.split()[2])})
-        print(data_inputs)
+
 
 horizon() # Check if the horizon is correct
 
