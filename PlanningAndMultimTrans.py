@@ -121,7 +121,7 @@ input_global = {}
 # Function read all information in the input file
 # Method reads first line of each paragraph to understand which class the input belongs to, 
 # then uses/references the input_request dictionaries to understand the expect data and format within that paragraph
-def import_imports(input_objects = input_objects, input_links = input_links, input_global = input_global):
+def import_inputs(input_objects = input_objects, input_links = input_links, input_global = input_global):
     input_request_names = list(input_request_objects.keys()) + list(input_request_global.keys())
     with txtFile as f:
         lines = f.readlines()
@@ -326,7 +326,8 @@ def update_input_table(input_table, input_value, input_name, input_format, objec
                     
 
 
-input_objects, input_links, input_global = import_imports(input_objects, input_links, input_global)
+input_objects, input_links, input_global = import_inputs(input_objects, input_links, input_global)
+
 
 print("Hello")
 
