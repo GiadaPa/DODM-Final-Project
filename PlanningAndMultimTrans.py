@@ -296,6 +296,7 @@ def import_inputs(input_objects = input_objects, input_links = input_links, inpu
                 
                 
     return input_objects, input_links, input_global
+    
                     
 def update_input_table(input_table, input_value, input_name, input_format, object_class_name = np.nan, ID = np.nan):
     
