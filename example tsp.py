@@ -54,10 +54,10 @@ def subtour(vals):
 
 # Parse argument
 
-if len(sys.argv) < 2:
-    print('Usage: tsp.py npoints')
-    sys.exit(1)
-n = int(sys.argv[1])
+#if len(sys.argv) < 2:
+#    print('Usage: tsp.py npoints')
+#    sys.exit(1)
+n = 10#int(sys.argv[1])
 
 # Create n random points
 
@@ -86,6 +86,10 @@ for i, j in vars.keys():
 # for i,j in dist.keys():
 #   vars[i,j] = m.addVar(obj=dist[i,j], vtype=GRB.BINARY,
 #                        name='e[%d,%d]'%(i,j))
+
+
+
+
 
 
 # Add degree-2 constraint
