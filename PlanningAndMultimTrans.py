@@ -1,10 +1,14 @@
 """
-
 @author: Leonora Frangu, Fabio James Greenwood, Giada Palma, Benedetta Pasqualetto
 
 """
 
-### Librariesgt
+
+
+
+#----------------------------------------------------------------------------------------------------------------
+
+### Libraries
 from cmath import isnan
 import gurobipy as gp
 from gurobipy import *
@@ -12,6 +16,13 @@ import pandas as pd
 import numpy as np
 import copy
 
+#----------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+#----------------------------------------------------------------------------------------------------------------
 
 ### Sets and parameters
 
@@ -91,7 +102,6 @@ input_request_global = {
     
     }
     
-
 # Open text file for reading data.
 txtFile = open('Demo Instances/instance_demo1_N10.txt','r')
 
@@ -102,9 +112,8 @@ def to_hours(element):
     return h
 
 
-"""
-#-------------------------------------------------------- HORIZON -----------------------------------------------
-# Dictionary definition of the horizon
+
+
 data_inputs = {}
 input_objects = {}
 input_links = {}
@@ -326,26 +335,42 @@ def update_input_table(input_table, input_value, input_name, input_format, objec
     return input_table
                     
 
-input_data['horizon'] = get_horizon()
-#print(input_data)
-"""
-#----------------------------------------------------------------------------------------------------------------
-
 input_objects, input_links, input_global = import_inputs(input_objects, input_links, input_global)
-
 
 print("Hello")
 
-people = []     #Declare an empty list for the people.
+#----------------------------------------------------------------------------------------------------------------
 
-print(get_horizon())
+
+
+
+#----------------------------------------------------------------------------------------------------------------
+
 ### Initialization of the problem
+
+
+
+
+
+#----------------------------------------------------------------------------------------------------------------
 
 ### Variables
 
+
+
+#----------------------------------------------------------------------------------------------------------------
+
 ### Constraints
 
+
+
+#----------------------------------------------------------------------------------------------------------------
+
 ### Objective function
+
+
+
+#----------------------------------------------------------------------------------------------------------------
 
 ### Resolution
 # Calling the solver
