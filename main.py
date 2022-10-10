@@ -9,6 +9,8 @@
 # tours that don't visit every city.  The lazy constraint callback
 # adds new constraints to cut them off.
 
+print("hello")
+
 import sys
 import math
 import random
@@ -16,9 +18,11 @@ from itertools import combinations
 import gurobipy as gp
 from gurobipy import GRB
 from import_function import import_inputs
+from run_scenario import run_scenario
 from os import listdir
 from os.path import isfile, join
 exec(open("import_function.py").read())
+exec(open("run_scenario.py").read())
 
 
 
@@ -29,6 +33,7 @@ input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile
 #this will loop all the inputs we have put in the folder
 for scenario_input_file in input_file_names:
     input_objects, input_links, input_global = import_inputs(explicit_input_folder_location + scenario_input_file)
+    run_scenario(input_objects, input_links, input_global)
     #results_string = run_scenario(input_objects, input_links, input_global, solver = solver)
     #create csv output -> explicit_output_folder_location
     
