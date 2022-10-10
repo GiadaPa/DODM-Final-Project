@@ -1,8 +1,12 @@
 """
-
 @author: Leonora Frangu, Fabio James Greenwood, Giada Palma, Benedetta Pasqualetto
 
 """
+
+
+
+
+#----------------------------------------------------------------------------------------------------------------
 
 ### Libraries
 from cmath import isnan
@@ -12,6 +16,13 @@ import pandas as pd
 import numpy as np
 import copy
 
+#----------------------------------------------------------------------------------------------------------------
+
+
+
+
+
+#----------------------------------------------------------------------------------------------------------------
 
 ### Sets and parameters
 
@@ -91,10 +102,8 @@ input_request_global = {
     
     }
     
-
 # Open text file for reading data.
 txtFile = open('Demo Instances/instance_demo1_N10.txt','r')
-
 
 # Function definition to transform an element to hours by converting it to integer (eventually back to string)
 def to_hours(element):
@@ -104,7 +113,7 @@ def to_hours(element):
 
 
 
-# Dictionary definition of the horizon
+
 data_inputs = {}
 input_objects = {}
 input_links = {}
@@ -326,21 +335,42 @@ def update_input_table(input_table, input_value, input_name, input_format, objec
     return input_table
                     
 
-
 input_objects, input_links, input_global = import_inputs(input_objects, input_links, input_global)
-
 
 print("Hello")
 
-people = []     #Declare an empty list for the people.
+#----------------------------------------------------------------------------------------------------------------
+
+
+
+
+#----------------------------------------------------------------------------------------------------------------
 
 ### Initialization of the problem
 
+
+
+
+
+#----------------------------------------------------------------------------------------------------------------
+
 ### Variables
+
+
+
+#----------------------------------------------------------------------------------------------------------------
 
 ### Constraints
 
+
+
+#----------------------------------------------------------------------------------------------------------------
+
 ### Objective function
+
+
+
+#----------------------------------------------------------------------------------------------------------------
 
 ### Resolution
 # Calling the solver
