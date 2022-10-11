@@ -106,6 +106,7 @@ m.addConstrs(vars.sum(i, '*') == 2 for i in range(n))
 
 m._vars = vars
 m.Params.LazyConstraints = 1
+m.update()
 m.optimize(subtourelim)
 
 vals = m.getAttr('X', vars)

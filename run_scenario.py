@@ -161,8 +161,8 @@ def run_scenario(input_objects, input_links, input_global):
     for instance in links_person_combination_list_pre:
         links_person_combination_list = links_person_combination_list + [instance[0] + (instance[1], )]
     link_person_combined_dict = dict.fromkeys(links_person_combination_list)
-    
-    x_vars = m.addVars(link_person_combined_dict.keys(), vtype=GRB.BINARY, name='x_vars') 
+      
+    x_vars = m.addVars(link_person_combined_dict.keys(), vtype=GRB.BINARY, name='x_var') 
     
     #whether person n completes task t at node i
     y_vars = gp.tupledict()
@@ -210,15 +210,13 @@ def run_scenario(input_objects, input_links, input_global):
     #Basic Conservation of Flow - BCoF
     #Flow is directional, multi-medium, multi-flow (person) 
     #[the entries/exits from a node j, needs to be larger than one if there is a task at the node or if it is the home node of the person (h) (Boolean values)]
+        
+   #m.addConstrs(  vars.sum(i, '*') == 2 for i in range(n))
+    m.addConstrs((x_vars.sum(node_id, "*", "*", person_id) <= 1 for node_id in index_nodes_ids for person_id in index_person_ids), name = "BCoFO")
+    m.update()   
     
-       
-    for node_id in range(min_node_num, max_node_num + 1):
-        for person_id in index_person_ids:
-            temp_combine_list_starting_node_person = filter_list_of_tuples(link_person_combined_dict, 0, node_id)
-            temp_combine_list_starting_node_person = filter_list_of_tuples(temp_combine_list_starting_node_person, 3, person_id)
-            description = "BCoFO_n" + str(node_id) + "_p" + str(person_id)
-            m.addConstr(x_vars.sum(node_id, "*", "*", person_id) < 1, name = description)
-            #0.5 * (y_vars[location_id, tasks_id, person_id] + const_h[node_id, people_id]) )
+    #   m.addConstr(sum(vars[i,j] for j in range(n)) == 2)
+
     
     print("Break post constraints")
     
