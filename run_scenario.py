@@ -86,26 +86,6 @@ def subtour(vals):
     return cycle
 
 def run_scenario(input_objects, input_links, input_global):
-    print("Breakpoint")
-    """Section to delete START"""
-    #This section contains code that can be cut out with time
-
-    # Parse argument
-    """if len(sys.argv) < 2:
-        print('Usage: tsp.py npoints')
-        sys.exit(1)
-    n = int(sys.argv[1])
-
-    # Create n random points
-    random.seed(1)
-    points = [(random.randint(0, 100), random.randint(0, 100)) for i in range(n)]
-
-    # Dictionary of Euclidean distance between each pair of points
-    dist = {(i, j):
-            math.sqrt(sum((points[i][k]-points[j][k])**2 for k in range(2)))
-            for i in range(n) for j in range(i)}"""
-
-    """Section to delete END"""
 
 
     """Begin of model creation """
@@ -136,36 +116,19 @@ def run_scenario(input_objects, input_links, input_global):
     #t          -> task number t
     #bikePeriod -> period time for the bike quantity spaces relaxation assumption
 
-    """Constants"""
-    #These don't require notation as they will be pulled directly from the input import objects
-    
-    #Boolean whether node i is person n's home
-    
-    #what are all mentioned nodes?, creation of empty dict:
-    """ for node_id in index_nodes_ids:
-        for people_id in index_person_ids:
-            const_h[node_id, people_id] = 0"""
-    #Assignment of true values
-    
-        #const_h[input_objects["PEOPLE"][person_id]["HOME_ID"], input_objects["PEOPLE"][person_id]["PERSON_ID"]] = 1
-    const_h = gp.tupledict()
-    for people_id in index_person_ids:
-        for node_id in index_nodes_ids:
-            const_h[people_id, node_id] = m.addVar(vtype=GRB.BINARY, lb=0, ub=0 ,name='const_h_p_n_[%d,%d]'%(people_id, node_id))
-    #
-    #    const_h[people_id, node_id] 
-    m.update()
-    for person_id in index_person_ids:
-        const_h_string = "const_h_p_n_[{},{}]"
-        node_id = input_objects["PEOPLE"][person_id]["HOME_ID"]
-        #m.setAttr("UB", m.getVarByName(const_h_string.format(person_id, node_id)), 1)
-        #m.setAttr("LB", m.getVarByName(const_h_string.format(person_id, node_id)), 1)
-    m.update()
 
-    """Independent Variables"""
+
+    """Constants"""
     
-    print("Break pre indy variables")
+    const_h = gp.tupledict()
+    const_h_string = "const_h_p_n_[{},{}]"
+    for person_id in index_person_ids:
+        node_id = input_objects["PEOPLE"][person_id]["HOME_ID"]
+        const_h[person_id, node_id] = m.addVar(vtype=GRB.BINARY, lb=1, ub=1 ,name=const_h_string.format(person_id, node_id))
+
     
+
+    """Independent Variables"""    
     #whether person n travels down arc ij on tranportation mode m (Bool)
     list_to_combine = [list(input_links["NODE_TRAVEL_INFO"].keys()), list(index_person_ids)]
     links_person_combination_list_pre = list(itertools.product(*list_to_combine))
@@ -185,28 +148,9 @@ def run_scenario(input_objects, input_links, input_global):
     
     
     
-    
-    
-    
-    print("Break post indy variables")
-    
-    # Create variables
-    #vars = m.addVars(dist.keys(), obj=dist, vtype=GRB.BINARY, name='e')
-    #for i, j in vars.keys():
-    #    vars[j, i] = vars[i, j]  # edge in opposite direction
-
-    # You could use Python looping constructs and m.addVar() to create
-    # these decision variables instead.  The following would be equivalent
-    # to the preceding m.addVars() call...
-    #
-    # vars = tupledict()
-    # for i,j in dist.keys():
-    #   vars[i,j] = m.addVar(obj=dist[i,j], vtype=GRB.BINARY,
-    #                        name='e[%d,%d]'%(i,j))
-
-
     """Semi-Dependant Variables"""
     #These are the variables that are technically dependant variables but are modelled as constrained independent variables
+
 
 
     """Dependent Variables (Constraints and Variable Declaration)"""
@@ -216,49 +160,28 @@ def run_scenario(input_objects, input_links, input_global):
     # be careful not to make any illegal calculations this new variable
 
 
-    # Add degree-2 constraint
-
+    
     """Constraints"""
     #Basic Conservation of Flow - BCoF
     #Flow is directional, multi-medium, multi-flow (person) 
     #[the entries/exits from a node j, needs to be larger than one if there is a task at the node or if it is the home node of the person (h) (Boolean values)]
     # "BCoFO" -> (out)
-   #based on:
-   #m.addConstrs(  vars.sum(i, '*') == 2 for i in range(n))
-    """m.addConstrs((x_vars.sum(node_id, "*", "*", person_id) >= 0.5 * (y_vars[node_id, "*", person_id] + const_h[node_id, person_id]) 
-                  for node_id in index_nodes_ids for person_id in index_person_ids), name = "BCoFO")    
-    """#m.addConstrs((x_vars.sum(node_id, "*", "*", person_id) >= 1 for node_id in index_nodes_ids for person_id in index_person_ids), name = "BCoFO")    
-    #m.addConstrs((x_vars.sum(node_id, "*", "*", person_id) >= 1 for node_id in index_nodes_ids for person_id in index_person_ids), name = "BCoFO")    
-    
-        
+    constr_BCoFO_string = "const_BCoFO_n_p_[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h.sum(node_id, person_id)) >= 0 ), name = "BCoFO")
-            #m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO")
-            
-            
-            
-    
-    
-    
+            m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h.sum(node_id, person_id)) >= 0 ), name = constr_BCoFO_string.format(node_id, person_id))
+            #m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
+   
+   
+   
+    """Compliation of model for export (export is used for model integration)"""
     m.update()   
-    
-    #   m.addConstr(sum(vars[i,j] for j in range(n)) == 2)
     m.write(explicit_output_folder_location + "model_export.lp")
     
-    print("Break post constraints")
-    
-    #m.addConstrs(vars.sum(i, '*') == 2 for i in range(n))
     
     
-
-    # Using Python looping constructs, the preceding would be...
-    #
-    # for i in range(n):
-    #   m.addConstr(sum(vars[i,j] for j in range(n)) == 2)
-
-
-    # Optimize model
+    
+    """Model Running"""
 
     m._vars = vars
     m.Params.LazyConstraints = 1
