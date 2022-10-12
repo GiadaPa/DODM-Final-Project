@@ -118,6 +118,12 @@ def run_scenario(input_objects, input_links, input_global):
 
 
     """Constants"""
+    #the time required to travel down arc ij via mode m
+    
+    
+    
+    
+    
     #Set of all starting points of person n
     const_h = gp.tupledict()
     const_h_string = "const_h_p_n_[{},{}]"
@@ -125,6 +131,34 @@ def run_scenario(input_objects, input_links, input_global):
         node_id = input_objects["PEOPLE"][person_id]["HOME_ID"]
         const_h[person_id, node_id] = m.addVar(vtype=GRB.BINARY, lb=1, ub=1 ,name=const_h_string.format(person_id, node_id))
 
+    #travelling time associated to each arc
+    #const_t = gp.tupledict()
+    const_t = dict()
+    const_t_string = "const_t_i_j_m_[{},{},{}]"
+    for i_id, j_id, mode_id in input_links["NODE_TRAVEL_INFO"].keys():
+        value = input_links["NODE_TRAVEL_INFO"][i_id, j_id, mode_id]["TIME"]
+        #const_t[i_id, j_id, mode_id] = m.addVar(vtype=GRB.CONTINUOUS, lb=value, ub=value, name=const_t_string.format(i_id, j_id, mode_id))
+        const_t[i_id, j_id, mode_id] = value
+    del value
+    m.update()
+    
+    #const_t_n = gp.tupledict()
+    const_t_n = dict()
+    const_t_n_string = "const_t_i_j_m_n_[{},{},{},{}]"
+    for i_id, j_id, mode_id in input_links["NODE_TRAVEL_INFO"].keys():
+        for person_id in index_person_ids:
+            value = input_links["NODE_TRAVEL_INFO"][i_id, j_id, mode_id]["TIME"]
+            const_t_n[i_id, j_id, mode_id, person_id] = value
+            #const_t_n[i_id, j_id, mode_id, person_id] = m.addVar(vtype=GRB.CONTINUOUS, lb=value, ub=value, name=const_t_n_string.format(i_id, j_id, mode_id, person_id))
+    del value
+    m.update()
+    
+    
+    
+    
+    
+    
+    
     
 
     """Independent Variables"""    
@@ -194,10 +228,26 @@ def run_scenario(input_objects, input_links, input_global):
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
             m.addConstr((x_vars.sum(node_id, "*", "*", person_id) <= 1 ), name = constr_BCoFIs_string.format(node_id, person_id))
-    del constr_BCoFOs_string
+    del constr_BCoFIs_string
+    
+    #Task Timing
+    #This controls the time (w) which the task at j starts
     
     
+    node_id = 2
+    person_id = 1
     
+    print("Stop")
+    
+    #m.addConstr((sum(x_vars.iloc[:, node_id, :, person_id] * const_t.iloc[:, node_id, :])  >= 0 ), name = "Test")
+    #m.addConstr((sum(x_vars.select("*", node_id, "*", person_id).prod(const_t("*", node_id, "*"))) >= 0 ), name = "Test")
+    
+    #m.addConstr((x_vars.prod(const_t_n)  >= 0 ), name = "Test")
+    
+    m.addConstr((x_vars.prod(const_t_n, "*", node_id, "*", person_id)  >= 0 ), name = "Test")
+    
+    
+    print("Stop")
     
     
     
