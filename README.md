@@ -5,3 +5,8 @@ work on run_scenario file, I hope that I have started to layout a format we can 
 
 m.getConstrs() - Retrieve a list of all linear constraints in the model.
 
+Additional Question for Proff:
+1. How should we test such a complicated model?
+2. What is the requirement for visualsiation of the model?
+3. This project is already massive, is there an understanding of limiting the required work?
+4. I assume we dont have to inforce the requirement that no bus route will travel down the same arc (I believe this will be enforced by the inputs provided)
