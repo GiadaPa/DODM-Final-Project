@@ -120,40 +120,40 @@ def run_scenario(input_objects, input_links, input_global):
     """Constants"""
     #the time required to travel down arc ij via mode m
     #Set of all starting points of person n
-    const_h = dict()
-    const_h_string = "const_h_p_n_[{},{}]"
+    const_h_i_n = dict()
     for person_id in index_person_ids:
         for node_id in index_nodes_ids:
-            const_h[person_id, node_id] = 0
+            const_h_i_n[node_id, person_id] = 0
     for person_id in index_person_ids:
         node_id = input_objects["PEOPLE"][person_id]["HOME_ID"]
-        const_h[person_id, node_id] = 1
+        const_h_i_n[node_id, person_id] = 1
         
         
 
     #travelling time associated to each arc
-    #const_t = gp.tupledict()
-    const_t = dict()
-    const_t_string = "const_t_i_j_m_[{},{},{}]"
+    const_t_i_j_m = dict()
     for i_id, j_id, mode_id in input_links["NODE_TRAVEL_INFO"].keys():
         value = input_links["NODE_TRAVEL_INFO"][i_id, j_id, mode_id]["TIME"]
-        #const_t[i_id, j_id, mode_id] = m.addVar(vtype=GRB.CONTINUOUS, lb=value, ub=value, name=const_t_string.format(i_id, j_id, mode_id))
-        const_t[i_id, j_id, mode_id] = value
+        const_t_i_j_m[i_id, j_id, mode_id] = value
     del value
     m.update()
     
-    #const_t_n = gp.tupledict()
-    const_t_n = dict()
-    const_t_n_string = "const_t_i_j_m_n_[{},{},{},{}]"
+    #this is the const_t_i_j_m extrended by an extra dimention (n) for use in a later constraint
+    const_t_i_j_m_n = dict()
     for i_id, j_id, mode_id in input_links["NODE_TRAVEL_INFO"].keys():
         for person_id in index_person_ids:
             value = input_links["NODE_TRAVEL_INFO"][i_id, j_id, mode_id]["TIME"]
-            const_t_n[i_id, j_id, mode_id, person_id] = value
-            #const_t_n[i_id, j_id, mode_id, person_id] = m.addVar(vtype=GRB.CONTINUOUS, lb=value, ub=value, name=const_t_n_string.format(i_id, j_id, mode_id, person_id))
+            const_t_i_j_m_n[i_id, j_id, mode_id, person_id] = value
     del value
     m.update()
     
     
+    
+    """ACTION Notation for this constant needs to be updated, and has to be added to constants in the first place """
+    const_s_t = dict() #
+    for task in input_objects["TASKS"].values():
+        const_s_t[task["TASK_ID"]] = task["SERVICE_TIME"]
+    m.update()
     
     
     
@@ -175,16 +175,21 @@ def run_scenario(input_objects, input_links, input_global):
     
     #whether person n completes task t at node i
     y_vars = gp.tupledict()
+    y_var_string = "const_i{}_t{}_n{}"
     for tasks_id in input_objects["TASKS"].keys():
         location_id = input_objects["TASKS"][tasks_id]["PLACE_ID"]
         person_id = input_objects["TASKS"][tasks_id]["PERSON_ID"]
-        y_vars[location_id, tasks_id, person_id] = m.addVar(vtype=GRB.BINARY, name='y_vars[%d,"_",%d,"_",%d]'%(location_id, tasks_id, person_id))
+        y_vars[location_id, tasks_id, person_id] = m.addVar(vtype=GRB.BINARY, name=y_var_string.format(location_id, tasks_id, person_id))
     
     
     
     """Semi-Dependant Variables"""
     #These are the variables that are technically dependant variables but are modelled as constrained independent variables
-
+    w_vars = gp.tupledict()
+    w_var_string = "const_i{}_n{}"
+    for node_id in index_nodes_ids:
+        for person_id in index_person_ids:
+            w_vars[node_id, person_id] = m.addVar(vtype=GRB.CONTINUOUS, name=w_var_string.format(node_id, person_id))
 
 
     """Dependent Variables (Constraints and Variable Declaration)"""
@@ -203,7 +208,7 @@ def run_scenario(input_objects, input_links, input_global):
     constr_BCoFO_string = "const_BCoFO_n_p_[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h[person_id, node_id]) >= 0 ), name = constr_BCoFO_string.format(node_id, person_id))
+            m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h_i_n[person_id, node_id]) >= 0 ), name = constr_BCoFO_string.format(node_id, person_id))
             #m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
     del constr_BCoFO_string
     
@@ -211,7 +216,7 @@ def run_scenario(input_objects, input_links, input_global):
     constr_BCoFI_string = "const_BCoFI_n_p_[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            m.addConstr((x_vars.sum("*", node_id, "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h[person_id, node_id]) >= 0 ), name = constr_BCoFI_string.format(node_id, person_id))
+            m.addConstr((x_vars.sum("*", node_id, "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h_i_n[person_id, node_id]) >= 0 ), name = constr_BCoFI_string.format(node_id, person_id))
             #m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
     del constr_BCoFI_string
             
@@ -237,7 +242,13 @@ def run_scenario(input_objects, input_links, input_global):
     person_id = 1
     
     
-    m.addConstr((x_vars.prod(const_t_n, "*", node_id, "*", person_id)  >= 0 ), name = "Test")
+    w_vars[node_id, person_id] + (const_s_t[task_id] * y_vars[i_id, task_id, person_id])
+    
+    
+    
+    const_s_t
+    
+    m.addConstr((x_vars.prod(const_t_i_j_m_n, "*", node_id, "*", person_id)  >= 0 ), name = "Test")
     
     
     print("Stop")
