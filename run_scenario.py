@@ -8,7 +8,6 @@
 # two incident edges.  Solutions to this model may contain subtours -
 # tours that don't visit every city.  The lazy constraint callback
 # adds new constraints to cut them off.
-
 import sys
 import math
 import random
