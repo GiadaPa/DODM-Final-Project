@@ -119,17 +119,17 @@ def run_scenario(input_objects, input_links, input_global):
 
     """Constants"""
     #the time required to travel down arc ij via mode m
-    
-    
-    
-    
-    
     #Set of all starting points of person n
-    const_h = gp.tupledict()
+    const_h = dict()
     const_h_string = "const_h_p_n_[{},{}]"
     for person_id in index_person_ids:
+        for node_id in index_nodes_ids:
+            const_h[person_id, node_id] = 0
+    for person_id in index_person_ids:
         node_id = input_objects["PEOPLE"][person_id]["HOME_ID"]
-        const_h[person_id, node_id] = m.addVar(vtype=GRB.BINARY, lb=1, ub=1 ,name=const_h_string.format(person_id, node_id))
+        const_h[person_id, node_id] = 1
+        
+        
 
     #travelling time associated to each arc
     #const_t = gp.tupledict()
@@ -203,7 +203,7 @@ def run_scenario(input_objects, input_links, input_global):
     constr_BCoFO_string = "const_BCoFO_n_p_[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h.sum(node_id, person_id)) >= 0 ), name = constr_BCoFO_string.format(node_id, person_id))
+            m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h[person_id, node_id]) >= 0 ), name = constr_BCoFO_string.format(node_id, person_id))
             #m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
     del constr_BCoFO_string
     
@@ -211,7 +211,7 @@ def run_scenario(input_objects, input_links, input_global):
     constr_BCoFI_string = "const_BCoFI_n_p_[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            m.addConstr((x_vars.sum("*", node_id, "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h.sum(node_id, person_id)) >= 0 ), name = constr_BCoFI_string.format(node_id, person_id))
+            m.addConstr((x_vars.sum("*", node_id, "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h[person_id, node_id]) >= 0 ), name = constr_BCoFI_string.format(node_id, person_id))
             #m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
     del constr_BCoFI_string
             
@@ -233,16 +233,9 @@ def run_scenario(input_objects, input_links, input_global):
     #Task Timing
     #This controls the time (w) which the task at j starts
     
-    
     node_id = 2
     person_id = 1
     
-    print("Stop")
-    
-    #m.addConstr((sum(x_vars.iloc[:, node_id, :, person_id] * const_t.iloc[:, node_id, :])  >= 0 ), name = "Test")
-    #m.addConstr((sum(x_vars.select("*", node_id, "*", person_id).prod(const_t("*", node_id, "*"))) >= 0 ), name = "Test")
-    
-    #m.addConstr((x_vars.prod(const_t_n)  >= 0 ), name = "Test")
     
     m.addConstr((x_vars.prod(const_t_n, "*", node_id, "*", person_id)  >= 0 ), name = "Test")
     
