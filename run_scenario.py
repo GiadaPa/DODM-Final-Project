@@ -118,7 +118,7 @@ def run_scenario(input_objects, input_links, input_global):
 
 
     """Constants"""
-    
+    #Set of all starting points of person n
     const_h = gp.tupledict()
     const_h_string = "const_h_p_n_[{},{}]"
     for person_id in index_person_ids:
@@ -129,6 +129,7 @@ def run_scenario(input_objects, input_links, input_global):
 
     """Independent Variables"""    
     #whether person n travels down arc ij on tranportation mode m (Bool)
+    #Here every combination of two lists need to be produced, to ensure we have a sparse various
     list_to_combine = [list(input_links["NODE_TRAVEL_INFO"].keys()), list(index_person_ids)]
     links_person_combination_list_pre = list(itertools.product(*list_to_combine))
     links_person_combination_list = []
@@ -170,10 +171,48 @@ def run_scenario(input_objects, input_links, input_global):
         for person_id in index_person_ids:
             m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h.sum(node_id, person_id)) >= 0 ), name = constr_BCoFO_string.format(node_id, person_id))
             #m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
-   
-   
-   
-    """Compliation of model for export (export is used for model integration)"""
+    del constr_BCoFO_string
+    
+    # "BCoFI" -> (In)
+    constr_BCoFI_string = "const_BCoFI_n_p_[{},{}]"    
+    for node_id in index_nodes_ids:
+        for person_id in index_person_ids:
+            m.addConstr((x_vars.sum("*", node_id, "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h.sum(node_id, person_id)) >= 0 ), name = constr_BCoFI_string.format(node_id, person_id))
+            #m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
+    del constr_BCoFI_string
+            
+    #Currently each node can only be visited once to not interfere with constraints around timing
+    # "BCoFOs" -> (out single max)
+    constr_BCoFOs_string = "const_BCoFOs_n_p_[{},{}]"    
+    for node_id in index_nodes_ids:
+        for person_id in index_person_ids:
+            m.addConstr((x_vars.sum(node_id, "*", "*", person_id) <= 1 ), name = constr_BCoFOs_string.format(node_id, person_id))
+    del constr_BCoFOs_string
+    
+    # "BCoFIs" -> (in single max)
+    constr_BCoFIs_string = "const_BCoFIs_n_p_[{},{}]"    
+    for node_id in index_nodes_ids:
+        for person_id in index_person_ids:
+            m.addConstr((x_vars.sum(node_id, "*", "*", person_id) <= 1 ), name = constr_BCoFIs_string.format(node_id, person_id))
+    del constr_BCoFOs_string
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+            
+            
+    """Compilation of model for export (export is used for model interrogation)"""
     m.update()   
     m.write(explicit_output_folder_location + "model_export.lp")
     
