@@ -140,15 +140,27 @@ def run_scenario(input_objects, input_links, input_global):
     #These don't require notation as they will be pulled directly from the input import objects
     
     #Boolean whether node i is person n's home
-    const_h = {}
-    #what are all mentioned nodes?, creation of empty dict:
-    for node_id in index_nodes_ids:
-        for people_id in index_person_ids:
-            const_h[node_id, people_id] = 0
-    #Assignment of true values
-    for person_id in index_person_ids:
-        const_h[input_objects["PEOPLE"][person_id]["HOME_ID"], input_objects["PEOPLE"][person_id]["PERSON_ID"]] = 1
     
+    #what are all mentioned nodes?, creation of empty dict:
+    """ for node_id in index_nodes_ids:
+        for people_id in index_person_ids:
+            const_h[node_id, people_id] = 0"""
+    #Assignment of true values
+    
+        #const_h[input_objects["PEOPLE"][person_id]["HOME_ID"], input_objects["PEOPLE"][person_id]["PERSON_ID"]] = 1
+    const_h = gp.tupledict()
+    for people_id in index_person_ids:
+        for node_id in index_nodes_ids:
+            const_h[people_id, node_id] = m.addVar(vtype=GRB.BINARY, lb=0, ub=0 ,name='const_h_p_n_[%d,%d]'%(people_id, node_id))
+    #
+    #    const_h[people_id, node_id] 
+    m.update()
+    for person_id in index_person_ids:
+        const_h_string = "const_h_p_n_[{},{}]"
+        node_id = input_objects["PEOPLE"][person_id]["HOME_ID"]
+        #m.setAttr("UB", m.getVarByName(const_h_string.format(person_id, node_id)), 1)
+        #m.setAttr("LB", m.getVarByName(const_h_string.format(person_id, node_id)), 1)
+    m.update()
 
     """Independent Variables"""
     
@@ -210,13 +222,29 @@ def run_scenario(input_objects, input_links, input_global):
     #Basic Conservation of Flow - BCoF
     #Flow is directional, multi-medium, multi-flow (person) 
     #[the entries/exits from a node j, needs to be larger than one if there is a task at the node or if it is the home node of the person (h) (Boolean values)]
-        
+    # "BCoFO" -> (out)
+   #based on:
    #m.addConstrs(  vars.sum(i, '*') == 2 for i in range(n))
-    m.addConstrs((x_vars.sum(node_id, "*", "*", person_id) <= 1 for node_id in index_nodes_ids for person_id in index_person_ids), name = "BCoFO")
+    """m.addConstrs((x_vars.sum(node_id, "*", "*", person_id) >= 0.5 * (y_vars[node_id, "*", person_id] + const_h[node_id, person_id]) 
+                  for node_id in index_nodes_ids for person_id in index_person_ids), name = "BCoFO")    
+    """#m.addConstrs((x_vars.sum(node_id, "*", "*", person_id) >= 1 for node_id in index_nodes_ids for person_id in index_person_ids), name = "BCoFO")    
+    #m.addConstrs((x_vars.sum(node_id, "*", "*", person_id) >= 1 for node_id in index_nodes_ids for person_id in index_person_ids), name = "BCoFO")    
+    
+        
+    for node_id in index_nodes_ids:
+        for person_id in index_person_ids:
+            m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h.sum(node_id, person_id)) >= 0 ), name = "BCoFO")
+            #m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO")
+            
+            
+            
+    
+    
+    
     m.update()   
     
     #   m.addConstr(sum(vars[i,j] for j in range(n)) == 2)
-
+    m.write(explicit_output_folder_location + "model_export.lp")
     
     print("Break post constraints")
     
