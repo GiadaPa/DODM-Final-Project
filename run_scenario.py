@@ -240,14 +240,16 @@ def run_scenario(input_objects, input_links, input_global):
     
     node_id = 2
     person_id = 1
+    task_id = 1
     
     
-    w_vars[node_id, person_id] + (const_s_t[task_id] * y_vars[i_id, task_id, person_id])
+    """w_vars[node_id, person_id] + (const_s_t[task_id] * y_vars[i_id, task_id, person_id])
     
     
     
     const_s_t
-    
+    """
+    """This is how to multiple two vectors"""
     m.addConstr((x_vars.prod(const_t_i_j_m_n, "*", node_id, "*", person_id)  >= 0 ), name = "Test")
     
     
