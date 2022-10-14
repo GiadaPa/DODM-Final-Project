@@ -47,9 +47,31 @@ def filter_list_of_tuples(target_list, target_position, target_value):
     )
     return output
     
+
     
 
-
+def return_if_valid_reference(matrix, reference, output_if_false=0, output_if_true="value"):
+    
+    
+    try:
+        a               = matrix[tuple(reference)]#matrix[reference]
+        true_reference  = True
+    except KeyError:
+        a               = False
+        true_reference  = False
+       
+    if true_reference == True   and output_if_true == "value":
+        return a
+    if true_reference == True   and output_if_true != "value":
+        return output_if_true
+    if true_reference == False:
+        return output_if_false
+    
+    
+        
+        
+    
+    
 
 # Callback - use lazy constraints to eliminate sub-tours
 def subtourelim(model, where):
@@ -88,7 +110,7 @@ def run_scenario(input_objects, input_links, input_global):
 
 
     """Begin of model creation """
-    m = gp.Model()
+    md = gp.Model()
 
 
     """Indexes"""
@@ -107,12 +129,15 @@ def run_scenario(input_objects, input_links, input_global):
         if node[1] > max_node_num:
             max_node_num = node[1]
     index_nodes_ids = range(min_node_num, max_node_num + 1)
+    #index_nodes_ids = [1,2,3,4,5,6,7,8,9,10]
     #m          -> transportation (m)ode
+    index_modes_of_transport = ["WALKING", "CYCLING", "BUS"]
     #p          -> person
     index_person_ids = input_objects["PEOPLE"].keys()
     #d          -> departure time number d. Each bus stops have a number of departure times,each of which are indexed with a number
     #r          -> bus route number r
     #t          -> task number t
+    index_task_ids = input_objects["TASKS"].keys()
     #bikePeriod -> period time for the bike quantity spaces relaxation assumption
 
 
@@ -120,45 +145,48 @@ def run_scenario(input_objects, input_links, input_global):
     """Constants"""
     #the time required to travel down arc ij via mode m
     #Set of all starting points of person n
-    const_h_i_n = dict()
+    const_h_in = dict()
     for person_id in index_person_ids:
         for node_id in index_nodes_ids:
-            const_h_i_n[node_id, person_id] = 0
+            const_h_in[node_id, person_id] = 0
     for person_id in index_person_ids:
         node_id = input_objects["PEOPLE"][person_id]["HOME_ID"]
-        const_h_i_n[node_id, person_id] = 1
+        const_h_in[node_id, person_id] = 1
         
         
 
     #travelling time associated to each arc
-    const_t_i_j_m = dict()
+    const_t_ijm = dict()
     for i_id, j_id, mode_id in input_links["NODE_TRAVEL_INFO"].keys():
         value = input_links["NODE_TRAVEL_INFO"][i_id, j_id, mode_id]["TIME"]
-        const_t_i_j_m[i_id, j_id, mode_id] = value
+        const_t_ijm[i_id, j_id, mode_id] = value
     del value
-    m.update()
+    md.update()
     
-    #this is the const_t_i_j_m extrended by an extra dimention (n) for use in a later constraint
-    const_t_i_j_m_n = dict()
+    #this is the const_t_ijm extrended by an extra dimention (n) for use in a later constraint
+    const_t_ijmn = dict()
     for i_id, j_id, mode_id in input_links["NODE_TRAVEL_INFO"].keys():
         for person_id in index_person_ids:
             value = input_links["NODE_TRAVEL_INFO"][i_id, j_id, mode_id]["TIME"]
-            const_t_i_j_m_n[i_id, j_id, mode_id, person_id] = value
+            const_t_ijmn[i_id, j_id, mode_id, person_id] = value
     del value
-    m.update()
+    md.update()
     
-    
-    
-    """ACTION Notation for this constant needs to be updated, and has to be added to constants in the first place """
+    #time required to complete task
     const_s_t = dict() #
     for task in input_objects["TASKS"].values():
         const_s_t[task["TASK_ID"]] = task["SERVICE_TIME"]
-    m.update()
+    md.update()
+    
+    #additional time required for special task* if not done within allotted time window
+    const_st_istar = dict() #
+    for task in input_objects["TASKS"].values():
+        const_st_istar[task["TASK_ID"]] = task["EXTRA_SERVICE_TIME"]
+    md.update()
     
     
-    
-    
-    
+    """M (large) Constants"""
+    M_task_timing = input_global["END"] * 100
     
 
     """Independent Variables"""    
@@ -171,25 +199,31 @@ def run_scenario(input_objects, input_links, input_global):
         links_person_combination_list = links_person_combination_list + [instance[0] + (instance[1], )]
     link_person_combined_dict = dict.fromkeys(links_person_combination_list)
       
-    x_vars = m.addVars(link_person_combined_dict.keys(), vtype=GRB.BINARY, name='x_var') 
+    x_vars = md.addVars(link_person_combined_dict.keys(), vtype=GRB.BINARY, name='x_var') 
     
     #whether person n completes task t at node i
     y_vars = gp.tupledict()
-    y_var_string = "const_i{}_t{}_n{}"
+    y_var_string = "y_var_i{}_t{}_n{}"
     for tasks_id in input_objects["TASKS"].keys():
         location_id = input_objects["TASKS"][tasks_id]["PLACE_ID"]
         person_id = input_objects["TASKS"][tasks_id]["PERSON_ID"]
-        y_vars[location_id, tasks_id, person_id] = m.addVar(vtype=GRB.BINARY, name=y_var_string.format(location_id, tasks_id, person_id))
+        y_vars[location_id, tasks_id, person_id] = md.addVar(vtype=GRB.BINARY, name=y_var_string.format(location_id, tasks_id, person_id))
     
     
     
     """Semi-Dependant Variables"""
     #These are the variables that are technically dependant variables but are modelled as constrained independent variables
     w_vars = gp.tupledict()
-    w_var_string = "const_i{}_n{}"
+    w_var_string = "w_var_i{}_n{}"
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            w_vars[node_id, person_id] = m.addVar(vtype=GRB.CONTINUOUS, name=w_var_string.format(node_id, person_id))
+            w_vars[node_id, person_id] = md.addVar(vtype=GRB.CONTINUOUS, name=w_var_string.format(node_id, person_id))
+
+    ts_istar_vars = gp.tupledict()
+    ts_istar_string = "ts_istar_t{}"
+    for t in index_task_ids:
+        ts_istar_vars[t] = md.addVar(vtype=GRB.BINARY, name=ts_istar_string.format(t))
+
 
 
     """Dependent Variables (Constraints and Variable Declaration)"""
@@ -205,53 +239,79 @@ def run_scenario(input_objects, input_links, input_global):
     #Flow is directional, multi-medium, multi-flow (person) 
     #[the entries/exits from a node j, needs to be larger than one if there is a task at the node or if it is the home node of the person (h) (Boolean values)]
     # "BCoFO" -> (out)
-    constr_BCoFO_string = "const_BCoFO_n_p_[{},{}]"    
+    constr_BCoFO_string = "const_BCoFO_np[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h_i_n[person_id, node_id]) >= 0 ), name = constr_BCoFO_string.format(node_id, person_id))
-            #m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
+            md.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h_in[node_id, person_id]) >= 0 ), name = constr_BCoFO_string.format(node_id, person_id))
+            #md.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
     del constr_BCoFO_string
     
     # "BCoFI" -> (In)
-    constr_BCoFI_string = "const_BCoFI_n_p_[{},{}]"    
+    constr_BCoFI_string = "const_BCoFI_np[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            m.addConstr((x_vars.sum("*", node_id, "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h_i_n[person_id, node_id]) >= 0 ), name = constr_BCoFI_string.format(node_id, person_id))
-            #m.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
+            md.addConstr((x_vars.sum("*", node_id, "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h_in[node_id, person_id]) >= 0 ), name = constr_BCoFI_string.format(node_id, person_id))
+            #md.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
     del constr_BCoFI_string
             
     #Currently each node can only be visited once to not interfere with constraints around timing
     # "BCoFOs" -> (out single max)
-    constr_BCoFOs_string = "const_BCoFOs_n_p_[{},{}]"    
+    constr_BCoFOs_string = "const_BCoFOs_np[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            m.addConstr((x_vars.sum(node_id, "*", "*", person_id) <= 1 ), name = constr_BCoFOs_string.format(node_id, person_id))
+            md.addConstr((x_vars.sum(node_id, "*", "*", person_id) <= 1 ), name = constr_BCoFOs_string.format(node_id, person_id))
     del constr_BCoFOs_string
     
     # "BCoFIs" -> (in single max)
-    constr_BCoFIs_string = "const_BCoFIs_n_p_[{},{}]"    
+    constr_BCoFIs_string = "const_BCoFIs_np[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            m.addConstr((x_vars.sum(node_id, "*", "*", person_id) <= 1 ), name = constr_BCoFIs_string.format(node_id, person_id))
+            md.addConstr((x_vars.sum(node_id, "*", "*", person_id) <= 1 ), name = constr_BCoFIs_string.format(node_id, person_id))
     del constr_BCoFIs_string
+    
+    
+    """Dont DEL!!!! This is how to multiply a matrix of variables by a simular matrix of constrants"""
+    """md.addConstr((x_vars.prod(const_t_ijmn, "*", node_id, "*", person_id)  >= 0 ), name = "Test")"""
     
     #Task Timing
     #This controls the time (w) which the task at j starts
-    
-    node_id = 2
-    person_id = 1
-    task_id = 1
-    
-    
-    """w_vars[node_id, person_id] + (const_s_t[task_id] * y_vars[i_id, task_id, person_id])
-    
-    
-    
-    const_s_t
-    """
-    """This is how to multiple two vectors"""
-    m.addConstr((x_vars.prod(const_t_i_j_m_n, "*", node_id, "*", person_id)  >= 0 ), name = "Test")
-    
+    #TT1_ijntm
+    for i in index_nodes_ids:
+        for j in index_nodes_ids:
+            for n in index_person_ids:
+                for t in index_task_ids:
+                    for m in index_modes_of_transport:
+                        if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True):
+                            expr_a_temp = w_vars[j, n] - w_vars[i, n] 
+                            expr_b_temp = - x_vars[i, j, m, n] * const_t_ijm[i,j,m]
+                            #These expresions only count if there is a task for the person/node/task combination
+                            if return_if_valid_reference(y_vars, [i, t, n], False, True):
+                                expr_c_temp = - (const_s_t[t] * y_vars[i, t, n]) - (const_st_istar[t] * ts_istar_vars[t])
+                            else:
+                                expr_c_temp = 0 
+                            #expr_b_temp = 0
+                            #for m in index_modes_of_transport:
+                            #    if return_if_valid_reference(x_vars, [i, j, m, n], False, True):
+                            #        expr_b_temp += x_vars[i, j, m, n] * const_t_ijm[i,j,m] 
+                            expr_d_temp = - M_task_timing * (1 - x_vars[i,j,m,n])
+                            constr_name_string =  "TT1_i{}j{}n{}t{}m{}"
+                            md.addConstr((expr_a_temp + expr_b_temp + expr_c_temp - expr_d_temp >= 0), name = constr_name_string.format(i,j,n,t,m,))
+                            
+                            
+                            """Do not delete, this was the previous requirement to make the constraint, but is still a good example to kepp"""
+                            """expression_temp = 0
+                            for j in index_nodes_ids:
+                                for m in index_modes_of_transport:
+                                    if return_if_valid_reference(x_vars, [i, j, m, n], False, True):
+                                        expression_temp += x_vars[i, j, m, n] * const_t_ijm[i,j,m] 
+                            md.addConstr((expression_temp>=1), name = "Test2")"""
+
+                            #md.addConstr((sum(x_vars[i, j, m, n] * const_t_ijm[i,j,m] for j in index_nodes_ids for m in index_modes_of_transport if return_if_valid_reference(x_vars, [i, j, m, n], False, True))>1), name = "Test2")
+                            
+                            md.update()
+                            md.write(explicit_output_folder_location + "model_export.lp")
+    del expr_a_temp, expr_b_temp, expr_c_temp, expr_d_temp
+        
     
     print("Stop")
     
@@ -269,25 +329,25 @@ def run_scenario(input_objects, input_links, input_global):
             
             
     """Compilation of model for export (export is used for model interrogation)"""
-    m.update()   
-    m.write(explicit_output_folder_location + "model_export.lp")
+    md.update()   
+    md.write(explicit_output_folder_location + "model_export.lp")
     
     
     
     
     """Model Running"""
 
-    m._vars = vars
-    m.Params.LazyConstraints = 1
-    m.optimize(subtourelim)
+    md._vars = vars
+    md.Params.LazyConstraints = 1
+    md.optimize(subtourelim)
 
-    vals = m.getAttr('X', vars)
+    vals = md.getAttr('X', vars)
     tour = subtour(vals)
     assert len(tour) == n
 
     print('')
     print('Optimal tour: %s' % str(tour))
-    print('Optimal cost: %g' % m.ObjVal)
+    print('Optimal cost: %g' % md.ObjVal)
     print('')
 
 """Temporary section"""
