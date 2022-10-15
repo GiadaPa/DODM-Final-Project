@@ -129,13 +129,49 @@ def run_scenario(input_objects, input_links, input_global):
         if node[1] > max_node_num:
             max_node_num = node[1]
     index_nodes_ids = range(min_node_num, max_node_num + 1)
-    #index_nodes_ids = [1,2,3,4,5,6,7,8,9,10]
-    #m          -> transportation (m)ode
+    #n -> person
+    index_person_ids = input_objects["PEOPLE"].keys()    
+    
+    #t -> task number
+    
+    #p -> place 
+
+    #b -> bike station
+
+    #l -> bus line number 
+    index_bus_lines = input_objects["BUS_LINES"].keys()
+
+    #d -> departure time number d.Each bus stops have a number of departure times,each of which are indexed with a number
+    index_bus_departures = dict()
+    df_bus_stops = pd.DataFrame(input_links["BUS_STOP_TO_LINE"].values(), index=input_links["BUS_STOP_TO_LINE"].keys())
+    depots = df_bus_stops[df_bus_stops[0]==1]
+    
+    
+    for l in index_bus_lines:
+        #       {k  : v   for k,   v     in points.items()                                                                   if v[0] < 5    and v[1] < 5}
+        depot_id = {key: value for key, value in zip(input_links["BUS_STOP_TO_LINE"].keys(), input_links["BUS_STOP_TO_LINE"].values()) if int(key[1]) == l and value == 1}
+        depot_id = depot_id[0]
+        temp_index_stops_id = {key[0]: value for key, value in zip(input_links["BUS_STOP_TO_LINE"].keys(), input_links["BUS_STOP_TO_LINE"].values()) if int(key[1]) == l}
+        for link in range(0, len(temp_index_stops_id)-1):
+        
+        
+    
+    
+    #bikePeriod → period time for the bike quantity/spaces relaxation/assumption
+
+    #m -> transportation (m)ode
     index_modes_of_transport = ["WALKING", "CYCLING", "BUS"]
-    #p          -> person
-    index_person_ids = input_objects["PEOPLE"].keys()
-    #d          -> departure time number d. Each bus stops have a number of departure times,each of which are indexed with a number
+
+    
+    
+    
+    
+    
+    
+    
     #r          -> bus route number r
+        
+    
     #t          -> task number t
     index_task_ids = input_objects["TASKS"].keys()
     #bikePeriod -> period time for the bike quantity spaces relaxation assumption
@@ -187,6 +223,7 @@ def run_scenario(input_objects, input_links, input_global):
     #set of bus departure times (node i,line l,departure time d)
 
     #time window a person has to board a bus (see assumptions)
+    bus_relaxation = 30 #seconds
 
     #Maximum number of people allowed on a bus (see assumptions)
 
@@ -294,6 +331,20 @@ def run_scenario(input_objects, input_links, input_global):
     #health or loss gain according to transportation mode chosen
     
     
+    #waiting idle time at node (pre-task)
+    aw_vars = gp.tupledict()
+    aw_var_string = "aw_vars_i{}__n{}"
+    for node_id in index_nodes_ids:
+        for person_id in index_person_ids:
+            aw_vars[node_id, person_id] = md.addVar(vtype=GRB.CONTINUOUS, name=aw_var_string.format(node_id, person_id))
+    
+        
+    #waiting idle time at node (post-task)
+    bw_vars = gp.tupledict()
+    bw_var_string = "bw_vars_i{}__n{}"
+    for node_id in index_nodes_ids:
+        for person_id in index_person_ids:
+            bw_vars[node_id, person_id] = md.addVar(vtype=GRB.CONTINUOUS, name=bw_var_string.format(node_id, person_id))
     
     
     
@@ -375,7 +426,7 @@ def run_scenario(input_objects, input_links, input_global):
                     for t in index_task_ids:
                         for m in index_modes_of_transport:
                             if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True):
-                                expr_a_temp = w_vars[j, n] - w_vars[i, n] 
+                                expr_a_temp = w_vars[j, n] - w_vars[i, n] - aw_vars[j, n] - bw_vars[i, n]
                                 expr_b_temp = - x_vars[i, j, m, n] * const_t_ijm[i,j,m]
                                 #These expresions only count if there is a task for the person/node/task combination
                                 if return_if_valid_reference(y_vars, [i, t, n], False, True):
@@ -427,7 +478,22 @@ def run_scenario(input_objects, input_links, input_global):
     for t in index_task_ids:
         md.addConstr((tstar_vars[tasks_id] <= const_special_t[t]), name = TT4_name_string.format(t))
     
+    #Bus Travel Constraints
+    #These two constants state that person must finish their task and waiting period at node i, 
+    #x seconds (controlled by the bus relaxation constant) before the exact bus they want to catch arrives at 
+    #BTC1after_dri
+    #BTC1before_dri
+    for bus_line_id in index_bus_lines:
+        for node_id_along_line in nodes_along_line:
+            for departure_time in departure_times_for_node:
+                for person_id in index_person_ids:
+                    temp_expression_a = w_vars[node_id_along_line, person_id]
+                    
+                    
+                    + const_s_t[]
     
+    
+
     
     
     
