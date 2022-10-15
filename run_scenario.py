@@ -405,16 +405,36 @@ def run_scenario(input_objects, input_links, input_global):
     #This controls that tasks happen within their designated time windows (only applies if the tasks happens 
     #and the task extension penalty for falling out of the allotted time isn’t applied)
     #TT2before_int & TT2after_int
+    #also:
+    #Task extensions/delays only apply to tasks that are undertaken
+    #TT3_int
     
     TT2after_name_string =  "TT2after_i{}n{}t{}"
     TT2before_name_string =  "TT2before_i{}n{}t{}"
+    TT3_name_string =  "TT3_i{}n{}t{}"
     for i in index_nodes_ids:
         for n in index_person_ids:
             for t in index_task_ids:
                 if return_if_valid_reference(y_vars, [i, t, n], False, True):
                     md.addConstr((const_a_t[t] - M_time * tstar_vars[t] - M_time * (1 - y_vars[i, t, n]) <= w_vars[i, n]), name = TT2after_name_string.format(i,n,t))
                     md.addConstr((const_b_t[t] + M_time * tstar_vars[t] + M_time * (1 - y_vars[i, t, n]) >= w_vars[i, n]), name = TT2before_name_string.format(i,n,t))
-                    
+                    #Note: Not sure the below constraint is needed
+                    md.addConstr((tstar_vars[tasks_id] <= y_vars[i, t, n]), name = TT3_name_string.format(i,n,t))
+    
+    #Task extensions/delays only apply to tasks that are special
+    #TT4_t
+    TT4_name_string =  "TT4_t{}"
+    for t in index_task_ids:
+        md.addConstr((tstar_vars[tasks_id] <= const_special_t[t]), name = TT4_name_string.format(t))
+    
+    
+    
+    
+    
+    
+    
+    
+    
                     
                 
     md.update()
