@@ -67,8 +67,19 @@ def return_if_valid_reference(matrix, reference, output_if_false=0, output_if_tr
     if true_reference == False:
         return output_if_false
     
+def are_there_tasks_with_the_same_person_and_node():    
+    duplicate = False
+    for task_ids_a in input_objects["TASKS"].keys():
+        task_a      = input_objects["TASKS"][task_ids_a]
+        #person_id   = task_a["PERSON_ID"]
+        #place_id    = task_a["PLACE_ID"]
+        for task_ids_b in input_objects["TASKS"].keys():
+            task_b  = input_objects["TASKS"][task_ids_b]
+            if task_ids_a != task_ids_b:
+                if task_a["PERSON_ID"] == task_b["PERSON_ID"] and task_a["PLACE_ID"] == task_b["PLACE_ID"]:
+                    duplicate = True
+    return duplicate
     
-        
         
     
     
@@ -147,12 +158,13 @@ def run_scenario(input_objects, input_links, input_global):
     depots = df_bus_stops[df_bus_stops[0]==1]
     
     
-    for l in index_bus_lines:
+    """for l in index_bus_lines:
         #       {k  : v   for k,   v     in points.items()                                                                   if v[0] < 5    and v[1] < 5}
         depot_id = {key: value for key, value in zip(input_links["BUS_STOP_TO_LINE"].keys(), input_links["BUS_STOP_TO_LINE"].values()) if int(key[1]) == l and value == 1}
         depot_id = depot_id[0]
         temp_index_stops_id = {key[0]: value for key, value in zip(input_links["BUS_STOP_TO_LINE"].keys(), input_links["BUS_STOP_TO_LINE"].values()) if int(key[1]) == l}
         for link in range(0, len(temp_index_stops_id)-1):
+            print("F")"""
         
         
     
@@ -176,6 +188,18 @@ def run_scenario(input_objects, input_links, input_global):
     index_task_ids = input_objects["TASKS"].keys()
     #bikePeriod -> period time for the bike quantity spaces relaxation assumption
 
+    """Special Subsets"""
+    #Tasks related to node i and person n
+    index_subset_tasks_in = dict()
+    for node_id in index_nodes_ids:
+        for person_id in index_person_ids:
+            index_subset_tasks_in[node_id, person_id] = []
+            
+    for task_id in input_objects["TASKS"].keys():
+        node_id     = input_objects["TASKS"][task_id]["PLACE_ID"]
+        person_id   = input_objects["TASKS"][task_id]["PERSON_ID"]
+        task_id     = input_objects["TASKS"][task_id]["TASK_ID"]
+        index_subset_tasks_in[node_id, person_id] = index_subset_tasks_in[node_id, person_id] + [task_id]
 
 
     """Constants"""
@@ -429,10 +453,10 @@ def run_scenario(input_objects, input_links, input_global):
                                 expr_a_temp = w_vars[j, n] - w_vars[i, n] - aw_vars[j, n] - bw_vars[i, n]
                                 expr_b_temp = - x_vars[i, j, m, n] * const_t_ijm[i,j,m]
                                 #These expresions only count if there is a task for the person/node/task combination
-                                if return_if_valid_reference(y_vars, [i, t, n], False, True):
-                                    expr_c_temp = - (const_s_t[t] * y_vars[i, t, n]) - (const_st_istar[t] * ts_istar_vars[t])
-                                else:
-                                    expr_c_temp = 0 
+                                expr_c_temp = 0
+                                for t in index_subset_tasks_in[i,n]:
+                                    expr_c_temp = expr_c_temp - (const_s_t[t] * y_vars[i, t, n]) - (const_st_istar[t] * ts_istar_vars[t])
+                                    
                                 expr_d_temp = - M_time * (1 - x_vars[i,j,m,n])
                                 constr_name_string =  "TT1_i{}j{}n{}t{}m{}"
                                 
@@ -478,6 +502,14 @@ def run_scenario(input_objects, input_links, input_global):
     for t in index_task_ids:
         md.addConstr((tstar_vars[tasks_id] <= const_special_t[t]), name = TT4_name_string.format(t))
     
+    #A person will only complete a single task at each node
+    #TT5_t_n
+    TT5_name_string =  "TT5_t{}n{}"
+    for i in index_nodes_ids:
+        for n in index_person_ids:
+            md.addConstr((y_vars.sum(i, "*", n) <= 1), name = TT5_name_string.format(t,n))
+        
+    
     #Bus Travel Constraints
     #These two constants state that person must finish their task and waiting period at node i, 
     #x seconds (controlled by the bus relaxation constant) before the exact bus they want to catch arrives at 
@@ -489,8 +521,7 @@ def run_scenario(input_objects, input_links, input_global):
                 for person_id in index_person_ids:
                     temp_expression_a = w_vars[node_id_along_line, person_id]
                     
-                    
-                    + const_s_t[]
+                    #+ const_s_t[]
     
     
 
@@ -561,5 +592,13 @@ explicit_input_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Disc
 explicit_output_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Discrete_Optimisation/DODM-Final-Project/Demo Instances/outputs_test/"
 input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
 input_objects, input_links, input_global = import_inputs(explicit_input_folder_location + input_file_names[0])
+print("G")
+
+
+            
+            
+            
+            
+
 run_scenario(input_objects, input_links, input_global)    
     
