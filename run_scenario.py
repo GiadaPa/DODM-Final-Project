@@ -181,10 +181,10 @@ def run_scenario(input_objects, input_links, input_global):
     
     
     
-    #r          -> bus route number r
+    #r -> bus route number r
         
     
-    #t          -> task number t
+    #t -> task number t
     index_task_ids = input_objects["TASKS"].keys()
     #bikePeriod -> period time for the bike quantity spaces relaxation assumption
 
@@ -230,7 +230,17 @@ def run_scenario(input_objects, input_links, input_global):
             time_delay = route_time_delay_single[-1] + [values["TIME"] for key, values in zip(NODE_TRAVEL_INFO.keys(), NODE_TRAVEL_INFO.values()) if (int(key[0]) == line[i] and int(key[1]) == line[i+1] and key[2] =="BUS")][0]
             route_time_delay_single = route_time_delay_single + [time_delay]
         route_time_delay = route_time_delay + [route_time_delay_single]
+    
+    #nodes with bus stops
+    subset_A_bus = []
+    del route_lnum_single
+    for route_lnum_single in route_lnum:
+        for i in route_lnum_single:
+            if not i in subset_A_bus:
+                subset_A_bus = subset_A_bus + [i]
         
+        
+            
     del BUS_STOP_TO_LINE, NODE_TRAVEL_INFO, route_time_delay_single, route_lnum_single, origin, links_shortlist_a, links_shortlist_b, links_shortlist, node           
     print("Hello")    
 
@@ -286,15 +296,15 @@ def run_scenario(input_objects, input_links, input_global):
     DTime = dict()
     for l in index_bus_lines:
         freq = input_objects["BUS_LINES"][1]["FREQUENCY"]
-        for x in range(0,len(route_time_delay[l-1])):
-            current_time = start_time
+        for i in route_lnum[l-1]:
+            route_position  = route_lnum[l-1].index(i)
+            current_time    = start_time + route_time_delay[l-1][route_position]
             d = 0
             while current_time < end_time:
-                node_id = route_lnum[l-1][x]
-                DTime[l,node_id,d] = current_time
+                DTime[l,i,d] = current_time
                 d += 1
                 current_time += freq
-
+    del route_position
 
 
     #time window a person has to board a bus (see assumptions)
@@ -358,14 +368,13 @@ def run_scenario(input_objects, input_links, input_global):
     
     
     #whether person n travels down arc ij on tranportation mode m (Bool)
-    list_to_combine = [list(input_links["NODE_TRAVEL_INFO"].keys()), list(index_person_ids)]
-    links_person_combination_list_pre = list(itertools.product(*list_to_combine))
-    links_person_combination_list = []
-    for instance in links_person_combination_list_pre:
-        links_person_combination_list = links_person_combination_list + [instance[0] + (instance[1], )]
-    link_person_combined_dict = dict.fromkeys(links_person_combination_list)
-      
-    x_vars = md.addVars(link_person_combined_dict.keys(), vtype=GRB.BINARY, name='x_var') 
+    x_vars = gp.tupledict()
+    x_var_string = "x_var_i{}j{}m{}__n{}"
+    for i,j,m in input_links["NODE_TRAVEL_INFO"].keys():
+        for n in index_person_ids:
+            x_vars[i,j,m,n] = md.addVar(vtype=GRB.BINARY, name=x_var_string.format(i,j,m,n))
+            x_vars[j,i,m,n] = md.addVar(vtype=GRB.BINARY, name=x_var_string.format(j,i,m,n))
+    
     
     
     #whether person n completes task t at node i
@@ -395,10 +404,26 @@ def run_scenario(input_objects, input_links, input_global):
     
     
     #whether person n leaves node i via line l at departure number d
+    bus_catch_vars = gp.tupledict()
+    bus_catch_var_string = "bus_catch_vars_l{}i{}d{}__n{}"
+    for l in index_bus_lines:
+        for i in route_lnum[l-1]:
+            departure_qty = max([key[2] for key in DTime.keys() if (key[0] == l and key[1] == i)])
+            for d in range(0, departure_qty):
+                for n in index_person_ids:
+                    bus_catch_vars[l, i, d, n] = md.addVar(vtype=GRB.BINARY, name=bus_catch_var_string.format(l, i, d, n))
+    del departure_qty
     
-    
-    #whether fare for bus is incurred for node i,line l,departure time d
-    
+    #whether fare for bus is incurred for node i, n person
+    fee_bus_vars = gp.tupledict()
+    fee_bus_var_string = "fee_bus_vars_i{}__n{}"
+    for l in index_bus_lines:
+        for i in route_lnum[l-1]:
+            departure_qty = max([key[2] for key in DTime.keys() if (key[0] == l and key[1] == i)])
+            for d in range(0, departure_qty):
+                for n in index_person_ids:
+                    fee_bus_vars[i,n] = md.addVar(vtype=GRB.BINARY, name=fee_bus_var_string.format(i,n))
+    del departure_qty
     
     #Boolean whether node i is serviced by person n
     
@@ -490,8 +515,6 @@ def run_scenario(input_objects, input_links, input_global):
     #Task Timing
     #This controls the time (w) which the task at j starts
     #TT1_ijntm
-    print("TT1_ijntm")
-    
     constr_TT1_name_string =  "TT1_i{}j{}n{}t{}m{}"
     if disable_costly_constraints == False:
         for i in index_nodes_ids:
@@ -564,36 +587,49 @@ def run_scenario(input_objects, input_links, input_global):
     #Bus Travel Constraints
     #These two constants state that person must finish their task and waiting period at node i, 
     #x seconds (controlled by the bus relaxation constant) before the exact bus they want to catch arrives at 
-    #BTC1after_dri
     #BTC1before_dri
-    constr_BTC1after_dri_name_string =  "BTC1after_l{}i{}d{}"
+    #BTC1after_dri
+    constr_BTC1before_dri_name_string   =  "BTC1before_l{}i{}d{}n{}"
+    constr_BTC1after_dri_name_string    =  "BTC1after_l{}i{}d{}n{}"
     for l in index_bus_lines:
-        for i in route_lnum[l]:
-            departure_qty = max([value[2] for key in DTime.keys() if (key[0] == l and key[1] == i)])
-            for d in range(0, departure_qty + 1):
-                for person_id in index_person_ids:
-                    temp_expression_a = w_vars[node_id_along_line, person_id] + bw_vars[node_id, person_id]
+        for i in route_lnum[l-1]:
+            departure_qty = max([key[2] for key in DTime.keys() if (key[0] == l and key[1] == i)])
+            for d in range(0, departure_qty):
+                for n in index_person_ids:
+                    temp_expression_a = w_vars[i, n] + bw_vars[i, n]
                     temp_expression_b = 0
                     for t in index_subset_tasks_in[i,n]:
-                        temp_expression_b = temp_expression_b - (const_s_t[t] * y_vars[i, t, n]) - (const_st_istar[t] * ts_istar_vars[t])
-                    temp_expression_c = DTime[l,i,d] + M_time * (1 - bus_catch_vars[l,i,d]) + bus_relaxation
-                    md.addConstr((temp_expression_a + temp_expression_b <= temp_expression_c), name = constr_BTC1after_dri_name_string.format(l,i,d))
-                    
-                    
-                    
-                    #+ const_s_t[]
+                        temp_expression_b = temp_expression_b + (const_s_t[t] * y_vars[i, t, n]) + (const_st_istar[t] * ts_istar_vars[t])
+                    temp_expression_c = DTime[l,i,d] + M_time * (1 - bus_catch_vars[l, i, d, n])
+                    temp_expression_relax = bus_relaxation
+                    md.addConstr((temp_expression_a + temp_expression_b <= temp_expression_c),                          name = constr_BTC1before_dri_name_string.format(l,i,d,n))
+                    md.addConstr((temp_expression_a + temp_expression_b >= temp_expression_c - temp_expression_relax),  name = constr_BTC1after_dri_name_string.format(l,i,d,n))
+    del temp_expression_a, temp_expression_b, temp_expression_c, temp_expression_relax
     
+    #A person can only leave a node once
+    #BTC2_lin
+    #Also:
+    #The person n can only get bus (i, d, r) the relevant Bus_idrn must be positive
+    #BTC3_lin
+    constr_BTC2_lin_name_string   =  "BTC2_l{}i{}n{}"
+    constr_BTC3_lin_name_string   =  "BTC3_l{}i{}n{}"
+    for l in index_bus_lines:
+        for i in route_lnum[l-1]:
+            for n in index_person_ids:
+                md.addConstr((bus_catch_vars.sum(l, i, "*", n) <= 1),                       name = constr_BTC2_lin_name_string.format(l,i,n))
+                md.addConstr((x_vars.sum(i,"*","BUS",n) <= bus_catch_vars.sum(l,i,"*",n)),  name = constr_BTC3_lin_name_string.format(l,i,n))
     
-
-    
-    
-    
-    
-    
-    
-    
-                    
+    #Every time a person gets on a bus from another mode of transport, they must purchase a bus fare 
+    #BTC4_lin
+    constr_BTC4_ln_name_string   =  "BTC4_l{}n{}"
+    for i in subset_A_bus:
+        for n in index_person_ids:
+            md.addConstr((x_vars.sum("*",i,"BUS",n) + fee_bus_vars[i,n] >= x_vars.sum(i,"*","BUS",n)), name = constr_BTC4_ln_name_string.format(i,n))
                 
+        
+    
+                    
+
     md.update()
     md.write(explicit_output_folder_location + "model_export.lp")
                     
