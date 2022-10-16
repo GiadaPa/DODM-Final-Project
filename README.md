@@ -10,3 +10,4 @@ Additional Question for Proff:
 2. What is the requirement for visualsiation of the model?
 3. This project is already massive, is there an understanding of limiting the required work?
 4. I assume we dont have to inforce the requirement that no bus route will travel down the same arc (I believe this will be enforced by the inputs provided)
+5. Are we right in thinking that bus routes dont loop back on themselves
