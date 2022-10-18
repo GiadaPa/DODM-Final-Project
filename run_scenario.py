@@ -18,6 +18,9 @@ import gurobipy as gp
 from gurobipy import GRB
 from os import listdir
 from os.path import isfile, join
+from datetime import datetime
+import copy
+
 
 
 from import_function import import_inputs
@@ -27,6 +30,8 @@ from import_function import import_inputs
 #This is to be deleted later once we change the code to run multiple scenarios
 
 #import import_function and run
+
+print("Start at: " + str(datetime.now()))
 exec(open("import_function.py").read())
 explicit_input_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Discrete_Optimisation/DODM-Final-Project/Demo Instances/inputs_test/"
 explicit_output_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Discrete_Optimisation/DODM-Final-Project/Demo Instances/outputs_test/"
@@ -87,23 +92,26 @@ def are_there_tasks_with_the_same_person_and_node():
 # Callback - use lazy constraints to eliminate sub-tours
 def subtourelim(model, where):
     if where == GRB.Callback.MIPSOL:
-        vals = model.cbGetSolution(model._vars)
-        # find the shortest cycle in the selected edge list
-        tour = subtour(vals)
-        if len(tour) < n:
-            # add subtour elimination constr. for every pair of cities in tour
-            model.cbLazy(gp.quicksum(model._vars[i, j]
-                                     for i, j in combinations(tour, 2))
-                         <= len(tour)-1)
+        vals = model.cbGetSolution(model._x_vars)
+        #per person
+        for n in 5: #action fix this
+            # find the shortest cycle in the selected edge list
+            tour = subtour(vals, n)
+            if len(tour) < vals.sum("*", "*", "*", n):
+                # add subtour elimination constr. for every pair of cities in tour
+                model.cbLazy(gp.quicksum(model._vars[i, j]
+                                        for i, j in combinations(tour, 2))
+                            <= len(tour)-1)
 
 
-# Given a tuplelist of edges, find the shortest subtour
-def subtour(vals):
+# Given a tuplelist of edges, find the shortest subtour, for person n
+def subtour(vals, n):
+    global index_nodes_ids
     # make a list of edges selected in the solution
-    edges = gp.tuplelist((i, j) for i, j in vals.keys()
-                         if vals[i, j] > 0.5)
-    unvisited = list(range(n))
-    cycle = range(n+1)  # initial length has 1 more city
+    edges = gp.tuplelist((i, j) for i,j,m,n_ in vals.keys()
+                         if vals[i,j,m,n] > 0.5 and n == n_ )
+    unvisited = copy.deepcopy(index_nodes_ids)
+    cycle = copy.deepcopy(index_nodes_ids) + [max(index_nodes_ids) + 1]  # initial length has 1 more city
     while unvisited:  # true if list is non-empty
         thiscycle = []
         neighbors = unvisited
@@ -117,9 +125,9 @@ def subtour(vals):
             cycle = thiscycle
     return cycle
 
-def run_scenario(input_objects, input_links, input_global):
+def run_scenario(input_objects, input_links, input_global, disable_costly_constraints = True):
 
-    disable_costly_constraints = True
+    
     """Begin of model creation """
     md = gp.Model()
 
@@ -242,11 +250,7 @@ def run_scenario(input_objects, input_links, input_global):
         
             
     del BUS_STOP_TO_LINE, NODE_TRAVEL_INFO, route_time_delay_single, route_lnum_single, origin, links_shortlist_a, links_shortlist_b, links_shortlist, node           
-    print("Hello")    
-
-
-       
-
+    
 
     """Constants"""
     
@@ -417,13 +421,9 @@ def run_scenario(input_objects, input_links, input_global):
     #whether fare for bus is incurred for node i, n person
     fee_bus_vars = gp.tupledict()
     fee_bus_var_string = "fee_bus_vars_i{}__n{}"
-    for l in index_bus_lines:
-        for i in route_lnum[l-1]:
-            departure_qty = max([key[2] for key in DTime.keys() if (key[0] == l and key[1] == i)])
-            for d in range(0, departure_qty):
-                for n in index_person_ids:
-                    fee_bus_vars[i,n] = md.addVar(vtype=GRB.BINARY, name=fee_bus_var_string.format(i,n))
-    del departure_qty
+    for i in subset_A_bus:
+        for n in index_person_ids:
+            fee_bus_vars[i,n] = md.addVar(vtype=GRB.BINARY, name=fee_bus_var_string.format(i,n))
     
     #Boolean whether node i is serviced by person n
     
@@ -436,7 +436,7 @@ def run_scenario(input_objects, input_links, input_global):
     aw_var_string = "aw_vars_i{}__n{}"
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            aw_vars[node_id, person_id] = md.addVar(vtype=GRB.CONTINUOUS, name=aw_var_string.format(node_id, person_id))
+            aw_vars[node_id, person_id] = md.addVar(vtype=GRB.CONTINUOUS, lb=0, name=aw_var_string.format(node_id, person_id))
     
         
     #waiting idle time at node (post-task)
@@ -444,18 +444,17 @@ def run_scenario(input_objects, input_links, input_global):
     bw_var_string = "bw_vars_i{}__n{}"
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            bw_vars[node_id, person_id] = md.addVar(vtype=GRB.CONTINUOUS, name=bw_var_string.format(node_id, person_id))
+            bw_vars[node_id, person_id] = md.addVar(vtype=GRB.CONTINUOUS, lb=0, name=bw_var_string.format(node_id, person_id))
     
     
     
     """Semi-Dependant Variables"""
     #These are the variables that are technically dependant variables but are modelled as constrained independent variables
-    print("Semi-Dependant Variables")
     w_vars = gp.tupledict()
     w_var_string = "w_var_i{}_n{}"
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            w_vars[node_id, person_id] = md.addVar(vtype=GRB.CONTINUOUS, name=w_var_string.format(node_id, person_id))
+            w_vars[node_id, person_id] = md.addVar(vtype=GRB.CONTINUOUS, lb=0, name=w_var_string.format(node_id, person_id))
 
     ts_istar_vars = gp.tupledict()
     ts_istar_string = "ts_istar_t{}"
@@ -477,7 +476,6 @@ def run_scenario(input_objects, input_links, input_global):
     #Flow is directional, multi-medium, multi-flow (person) 
     #[the entries/exits from a node j, needs to be larger than one if there is a task at the node or if it is the home node of the person (h) (Boolean values)]
     # "BCoFO" -> (out)
-    print("BCoFO -> (out)")
     constr_BCoFO_string = "const_BCoFO_np[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
@@ -511,14 +509,15 @@ def run_scenario(input_objects, input_links, input_global):
     
     """Dont DEL!!!! This is how to multiply a matrix of variables by a simular matrix of constrants"""
     """md.addConstr((x_vars.prod(const_t_ijmn, "*", node_id, "*", person_id)  >= 0 ), name = "Test")"""
-    
+    print("Costly constraint at: " + str(datetime.now()))
     #Task Timing
     #This controls the time (w) which the task at j starts
     #TT1_ijntm
     constr_TT1_name_string =  "TT1_i{}j{}n{}t{}m{}"
     if disable_costly_constraints == False:
+        temp_len = len(index_nodes_ids)
         for i in index_nodes_ids:
-            print(i)
+            print(str(i) + "/" +  temp_len)
             for j in index_nodes_ids:
                 for n in index_person_ids:
                     for t in index_task_ids:
@@ -546,7 +545,7 @@ def run_scenario(input_objects, input_links, input_global):
 
                                 #md.addConstr((sum(x_vars[i, j, m, n] * const_t_ijm[i,j,m] for j in index_nodes_ids for m in index_modes_of_transport if return_if_valid_reference(x_vars, [i, j, m, n], False, True))>1), name = "Test2")
         del expr_a_temp, expr_b_temp, expr_c_temp, expr_d_temp
-    
+    print(datetime.now())
     md.update()
     md.write(explicit_output_folder_location + "model_export.lp")
     
@@ -578,10 +577,10 @@ def run_scenario(input_objects, input_links, input_global):
     
     #A person will only complete a single task at each node
     #TT5_t_n
-    TT5_name_string =  "TT5_t{}n{}"
+    TT5_name_string =  "TT5_i{}n{}"
     for i in index_nodes_ids:
         for n in index_person_ids:
-            md.addConstr((y_vars.sum(i, "*", n) <= 1), name = TT5_name_string.format(t,n))
+            md.addConstr((y_vars.sum(i, "*", n) <= 1), name = TT5_name_string.format(i,n))
         
     
     #Bus Travel Constraints
@@ -626,57 +625,43 @@ def run_scenario(input_objects, input_links, input_global):
         for n in index_person_ids:
             md.addConstr((x_vars.sum("*",i,"BUS",n) + fee_bus_vars[i,n] >= x_vars.sum(i,"*","BUS",n)), name = constr_BTC4_ln_name_string.format(i,n))
                 
-        
-    
-                    
-
     md.update()
     md.write(explicit_output_folder_location + "model_export.lp")
-                    
-                
-        
+
     
-    
-    
-    
-    
-    
-    
-    
-    print("Stop")
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-            
+    """Set objective"""
+    md.setObjective(y_vars.sum("*","*","*"), GRB.MAXIMIZE)
             
     """Compilation of model for export (export is used for model interrogation)"""
     md.update()   
     md.write(explicit_output_folder_location + "model_export.lp")
     
-    
+    print("Ready to optimise at: " + str(datetime.now()))
     
     
     """Model Running"""
-
-    md._vars = vars
-    md.Params.LazyConstraints = 1
+    #md._vars = vars
+    
+    #for m in index_modes_of_transport:
+    #    for n in [3]:
+    #        m._x_vars = {key : value for key, value in zip(x_vars.keys(), x_vars.values()) if key[3] == 3}
+    md._x_vars = x_vars
+    
+    md.Params.LazyConstraints   = 1
+    md.Params.TimeLimit         = 5 * 60
+    #md.optimize()
+    
+    md.computeIIS()
+    md.write(explicit_output_folder_location +"infes_model.ilp")
+    
     md.optimize(subtourelim)
-
-    vals = md.getAttr('X', vars)
-    tour = subtour(vals)
-    assert len(tour) == n
+    print("Complete at: " + str(datetime.now()))
+    #vals = md.getAttr('X', vars)
+    #tour = subtour(vals)
+    #assert len(tour) == n
 
     print('')
-    print('Optimal tour: %s' % str(tour))
+    #print('Optimal tour: %s' % str(tour))
     print('Optimal cost: %g' % md.ObjVal)
     print('')
 
@@ -688,13 +673,6 @@ explicit_input_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Disc
 explicit_output_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Discrete_Optimisation/DODM-Final-Project/Demo Instances/outputs_test/"
 input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
 input_objects, input_links, input_global = import_inputs(explicit_input_folder_location + input_file_names[0])
-print("G")
-
-
-            
-            
-            
-            
 
 run_scenario(input_objects, input_links, input_global)    
     
