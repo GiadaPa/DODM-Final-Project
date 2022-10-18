@@ -58,17 +58,3 @@ plt.legend(('Places',"visited"))
  
 plt.show()
 
-
-#fig = plt.figure()
-#fig.show()
-
-
-"""ax2 = fig.add_subplot(gs[1,:])
-    plt.xlabel('Samples, (First ' + str(study_range) + ")")
-    plt.ylabel('House Price')
-    plt.title('House Prices v.s. Predictions (with error)' + additional_title_string)
-    for i in range(0, len(y_train_input[:study_range]), 1):
-        plt.plot([i, i], [y_train_input[i], pred_input[i]], 'ro-')
-    ax2.scatter(range(study_range), y_train_input[:study_range], s=20)
-    ax2.scatter(range(study_range), pred_input[:study_range], s=20)
-    plt.legend(('Actual Score', 'Prediction'))"""

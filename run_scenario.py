@@ -86,17 +86,19 @@ def are_there_tasks_with_the_same_person_and_node():
     return duplicate
     
         
-    
-    
+
 
 # Callback - use lazy constraints to eliminate sub-tours
 def subtourelim(model, where):
     if where == GRB.Callback.MIPSOL:
         vals = model.cbGetSolution(model._x_vars)
+        index_nodes_ids = model._index_nodes_ids
+        input_objects   = model._input_objects  #actions, this can be slimmed down
+    
         #per person
-        for n in 5: #action fix this
+        for n in [4, 5]: #action fix this
             # find the shortest cycle in the selected edge list
-            tour = subtour(vals, n)
+            tour = subtour(vals, n, index_nodes_ids, input_objects)
             if len(tour) < vals.sum("*", "*", "*", n):
                 # add subtour elimination constr. for every pair of cities in tour
                 model.cbLazy(gp.quicksum(model._vars[i, j]
@@ -104,19 +106,28 @@ def subtourelim(model, where):
                             <= len(tour)-1)
 
 
+"""
+
+"""
+
+
 # Given a tuplelist of edges, find the shortest subtour, for person n
-def subtour(vals, n):
-    global index_nodes_ids
+def subtour(vals, n, index_nodes_ids, input_objects):
+    
+    home = input_objects["PEOPLE"][n]["HOME_ID"]
     # make a list of edges selected in the solution
     edges = gp.tuplelist((i, j) for i,j,m,n_ in vals.keys()
                          if vals[i,j,m,n] > 0.5 and n == n_ )
-    unvisited = copy.deepcopy(index_nodes_ids)
-    cycle = copy.deepcopy(index_nodes_ids) + [max(index_nodes_ids) + 1]  # initial length has 1 more city
+    
+    unvisited = index_nodes_ids
+    #cycle = range(n+1)  # initial length has 1 more city
+    #[key[2] for key in DTime.keys() if (key[0] == l and key[1] == i)]
+    cycle = list(index_nodes_ids) + [max(index_nodes_ids) + 1]  # initial length has 1 more city
     while unvisited:  # true if list is non-empty
         thiscycle = []
         neighbors = unvisited
         while neighbors:
-            current = neighbors[0]
+            current = home
             thiscycle.append(current)
             unvisited.remove(current)
             neighbors = [j for i, j in edges.select(current, '*')
@@ -645,8 +656,12 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     
     #for m in index_modes_of_transport:
     #    for n in [3]:
-    #        m._x_vars = {key : value for key, value in zip(x_vars.keys(), x_vars.values()) if key[3] == 3}
-    md._x_vars = x_vars
+    #        m._x_vars  = {key : value for key, value in zip(x_vars.keys(), x_vars.values()) if key[3] == 3}
+    md._x_vars          = x_vars
+    md._index_nodes_ids = index_nodes_ids
+    md._max_node_num    = max_node_num
+    md._input_objects   = input_objects
+    
     
     md.Params.LazyConstraints   = 1
     md.Params.TimeLimit         = 5 * 60
