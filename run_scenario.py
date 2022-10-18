@@ -599,10 +599,11 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
                     temp_expression_b = 0
                     for t in index_subset_tasks_in[i,n]:
                         temp_expression_b = temp_expression_b + (const_s_t[t] * y_vars[i, t, n]) + (const_st_istar[t] * ts_istar_vars[t])
-                    temp_expression_c = DTime[l,i,d] + M_time * (1 - bus_catch_vars[l, i, d, n])
+                    temp_expression_c = DTime[l,i,d]
+                    temp_expression_M = M_time * (1 - bus_catch_vars[l, i, d, n])
                     temp_expression_relax = bus_relaxation
-                    md.addConstr((temp_expression_a + temp_expression_b <= temp_expression_c),                          name = constr_BTC1before_dri_name_string.format(l,i,d,n))
-                    md.addConstr((temp_expression_a + temp_expression_b >= temp_expression_c - temp_expression_relax),  name = constr_BTC1after_dri_name_string.format(l,i,d,n))
+                    md.addConstr((temp_expression_a + temp_expression_b <= temp_expression_c + temp_expression_M),                          name = constr_BTC1before_dri_name_string.format(l,i,d,n))
+                    md.addConstr((temp_expression_a + temp_expression_b >= temp_expression_c - temp_expression_M - temp_expression_relax),  name = constr_BTC1after_dri_name_string.format(l,i,d,n))
     del temp_expression_a, temp_expression_b, temp_expression_c, temp_expression_relax
     
     #A person can only leave a node once
@@ -651,8 +652,8 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     md.Params.TimeLimit         = 5 * 60
     #md.optimize()
     
-    md.computeIIS()
-    md.write(explicit_output_folder_location +"infes_model.ilp")
+    #md.computeIIS()
+    #md.write(explicit_output_folder_location +"infes_model.ilp")
     
     md.optimize(subtourelim)
     print("Complete at: " + str(datetime.now()))
