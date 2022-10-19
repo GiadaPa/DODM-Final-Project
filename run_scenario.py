@@ -262,6 +262,14 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
             
     del BUS_STOP_TO_LINE, NODE_TRAVEL_INFO, route_time_delay_single, route_lnum_single, origin, links_shortlist_a, links_shortlist_b, links_shortlist, node           
     
+    #Home nodes i of person n
+    subset_Home_in = []
+    for person in input_objects["PEOPLE"].values():
+        location_id = person["HOME_ID"]
+        person_id   = person["PERSON_ID"]
+        subset_Home_in = subset_Home_in + [(location_id, person_id)]
+    
+    
 
     """Constants"""
     
@@ -338,13 +346,14 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     #Boolean whether node i is person n's home
 
     #Set of all starting points of person n
-    const_h_in = dict()
+    """Not in use"""
+    """const_h_in = dict()
     for person_id in index_person_ids:
         for node_id in index_nodes_ids:
             const_h_in[node_id, person_id] = 0
     for person_id in index_person_ids:
         node_id = input_objects["PEOPLE"][person_id]["HOME_ID"]
-        const_h_in[node_id, person_id] = 1
+        const_h_in[node_id, person_id] = 1"""
         
     #travelling time associated to each arc
     const_t_ijm = dict()
@@ -379,9 +388,6 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     """Independent Variables"""
     
     
-    #Amount of money of person n
-    
-    
     #whether person n travels down arc ij on tranportation mode m (Bool)
     x_vars = gp.tupledict()
     x_var_string = "x_var_i{}j{}m{}__n{}"
@@ -399,6 +405,15 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
         location_id = input_objects["TASKS"][tasks_id]["PLACE_ID"]
         person_id = input_objects["TASKS"][tasks_id]["PERSON_ID"]
         y_vars[location_id, tasks_id, person_id] = md.addVar(vtype=GRB.BINARY, name=y_var_string.format(location_id, tasks_id, person_id))
+    
+    #whether person n visits node z
+    z_vars = gp.tupledict()
+    z_var_string = "z_var_i{}__n{}"
+    for i in index_nodes_ids:
+        for n in index_person_ids:
+            z_vars[i, n] = md.addVar(vtype=GRB.BINARY, name=z_var_string.format(i, n))
+        
+    
     
     #Boolean,True if task is not done outside allotted time
     #Constrained to zero for tasks where this isn^' t an option
@@ -436,9 +451,7 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
         for n in index_person_ids:
             fee_bus_vars[i,n] = md.addVar(vtype=GRB.BINARY, name=fee_bus_var_string.format(i,n))
     
-    #Boolean whether node i is serviced by person n
-    
-    
+        
     #health or loss gain according to transportation mode chosen
     
     
@@ -456,6 +469,8 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
             bw_vars[node_id, person_id] = md.addVar(vtype=GRB.CONTINUOUS, lb=0, name=bw_var_string.format(node_id, person_id))
+    
+    #Amount of money on person n
     
     
     
@@ -490,7 +505,7 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     constr_BCoFO_string = "const_BCoFO_np[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            md.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h_in[node_id, person_id]) >= 0 ), name = constr_BCoFO_string.format(node_id, person_id))
+            md.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + z_vars[node_id, person_id]) >= 0 ), name = constr_BCoFO_string.format(node_id, person_id))
             #md.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
     del constr_BCoFO_string
     
@@ -498,7 +513,7 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     constr_BCoFI_string = "const_BCoFI_np[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            md.addConstr((x_vars.sum("*", node_id, "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + const_h_in[node_id, person_id]) >= 0 ), name = constr_BCoFI_string.format(node_id, person_id))
+            md.addConstr((x_vars.sum("*", node_id, "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + z_vars[node_id, person_id]) >= 0 ), name = constr_BCoFI_string.format(node_id, person_id))
             #md.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
     del constr_BCoFI_string
             
@@ -517,23 +532,31 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
             md.addConstr((x_vars.sum(node_id, "*", "*", person_id) <= 1 ), name = constr_BCoFIs_string.format(node_id, person_id))
     del constr_BCoFIs_string
     
+    #The person must enter and exit their home
+    # "BCoF2"
+    constr_BCoF2_string = "const_BCoF2_in[{},{}]"    
+    for (i, n) in subset_Home_in:
+        md.addConstr((x_vars.sum(node_id, "*", "*", person_id) <= 1 ), name = constr_BCoF2_string.format(i, n))
+    del constr_BCoF2_string
+    
     
     """Dont DEL!!!! This is how to multiply a matrix of variables by a simular matrix of constrants"""
     """md.addConstr((x_vars.prod(const_t_ijmn, "*", node_id, "*", person_id)  >= 0 ), name = "Test")"""
     print("Costly constraint at: " + str(datetime.now()))
     #Task Timing
     #This controls the time (w) which the task at j starts
+    #This doesn’t apply where a person is returning to their home node|
     #TT1_ijntm
     constr_TT1_name_string =  "TT1_i{}j{}n{}t{}m{}"
-    if disable_costly_constraints == False:
+    if disable_costly_constraints == True:
         temp_len = len(index_nodes_ids)
         for i in index_nodes_ids:
-            print(str(i) + "/" +  temp_len)
+            print(str(i) + "/" +  str(temp_len))
             for j in index_nodes_ids:
                 for n in index_person_ids:
                     for t in index_task_ids:
                         for m in index_modes_of_transport:
-                            if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True):
+                            if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True) and not (j,n) in subset_Home_in:
                                 expr_a_temp = w_vars[j, n] - w_vars[i, n] - aw_vars[j, n] - bw_vars[i, n]
                                 expr_b_temp = - x_vars[i, j, m, n] * const_t_ijm[i,j,m]
                                 #These expresions only count if there is a task for the person/node/task combination
