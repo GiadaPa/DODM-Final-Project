@@ -379,6 +379,11 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
         const_special_t[task["TASK_ID"]] = task["IS_SPECIAL"]
     md.update() 
     
+    #Start of the day (mins)
+    #No variable declared, taken from the input objects
+    
+    #End of the day (mins)
+    #No variable declared, taken from the input objects
     
     
     """M (large) Constants"""
@@ -505,7 +510,7 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     constr_BCoFO_string = "const_BCoFO_np[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            md.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + z_vars[node_id, person_id]) >= 0 ), name = constr_BCoFO_string.format(node_id, person_id))
+            md.addConstr((x_vars.sum(node_id, "*", "*", person_id) >= 0.5 * z_vars[node_id, person_id]), name = constr_BCoFO_string.format(node_id, person_id))
             #md.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
     del constr_BCoFO_string
     
@@ -513,7 +518,7 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     constr_BCoFI_string = "const_BCoFI_np[{},{}]"    
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
-            md.addConstr((x_vars.sum("*", node_id, "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id) + z_vars[node_id, person_id]) >= 0 ), name = constr_BCoFI_string.format(node_id, person_id))
+            md.addConstr((x_vars.sum("*", node_id, "*", person_id) >= 0.5 * z_vars[node_id, person_id]), name = constr_BCoFI_string.format(node_id, person_id))
             #md.addConstr((x_vars.sum(node_id, "*", "*", person_id) - (0.5 * y_vars.sum(node_id, "*", person_id)) >= 0 ), name = "BCoFO") 
     del constr_BCoFI_string
             
@@ -539,16 +544,25 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
         md.addConstr((x_vars.sum(node_id, "*", "*", person_id) <= 1 ), name = constr_BCoF2_string.format(i, n))
     del constr_BCoF2_string
     
+    #The person must exit a node they visit
+    # "BCoF3"
+    constr_BCoF3_string = "const_BCoF3_in[{},{}]"    
+    for j in index_nodes_ids:
+        for n in index_person_ids:
+            md.addConstr((x_vars.sum("*", j, "*", n) >= x_vars.sum(j, "*", "*", n)), name = constr_BCoF3_string.format(i, n))
+    del constr_BCoF3_string
+    
+    
     
     """Dont DEL!!!! This is how to multiply a matrix of variables by a simular matrix of constrants"""
     """md.addConstr((x_vars.prod(const_t_ijmn, "*", node_id, "*", person_id)  >= 0 ), name = "Test")"""
     print("Costly constraint at: " + str(datetime.now()))
     #Task Timing
-    #This controls the time (w) which the task at j starts
+    #This controls the time (w) which the person arrives at node starts
     #This doesn’t apply where a person is returning to their home node|
     #TT1_ijntm
     constr_TT1_name_string =  "TT1_i{}j{}n{}t{}m{}"
-    if disable_costly_constraints == True:
+    if disable_costly_constraints == False:
         temp_len = len(index_nodes_ids)
         for i in index_nodes_ids:
             print(str(i) + "/" +  str(temp_len))
@@ -609,13 +623,41 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     for t in index_task_ids:
         md.addConstr((tstar_vars[tasks_id] <= const_special_t[t]), name = TT4_name_string.format(t))
     
-    #A person will only complete a single task at each node
+    #A person will only complete a single task at a node they visit
     #TT5_t_n
     TT5_name_string =  "TT5_i{}n{}"
     for i in index_nodes_ids:
         for n in index_person_ids:
-            md.addConstr((y_vars.sum(i, "*", n) <= 1), name = TT5_name_string.format(i,n))
+            md.addConstr((y_vars.sum(i, "*", n) <= z_vars(i,n)), name = TT5_name_string.format(i,n))
+    
+    #A person begins at home at the start of the day
+    #TT6_in
+    TT6_name_string =  "TT6_i{}n{}"
+    for (i,n) in subset_Home_in:
+        md.addConstr((w_vars[i, n] >= input_global["START"]), name = TT6_name_string.format(i,n))
+    
+    #A person begins at home at the start of the day
+    #TT7_in
+    TT7_name_string =  "TT7_i{}n{}"
+    for (i,n) in subset_Home_in:
+        for j in index_nodes_ids:
+            for m in index_modes_of_transport:
+                if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True):
+                    expr_a_temp = w_vars[i, n] + aw_vars[j, n] + bw_vars[i, n]
+                    expr_b_temp = x_vars[i, j, m, n] * const_t_ijm[i,j,m]
+                    expr_c_temp = 0
+                    for t in index_subset_tasks_in[i,n]:
+                        expr_c_temp = expr_c_temp + (const_s_t[t] * y_vars[i, t, n]) + (const_st_istar[t] * ts_istar_vars[t])
+                    expr_M_temp = M_time * (1 - x_vars[i,j,m,n])
+                    
+                    md.addConstr((input_global["END"] + expr_M_temp >= expr_a_temp + expr_b_temp + expr_c_temp), name = TT7_name_string.format(i,n))
+            
+            
+            
+            
         
+        
+    
     
     #Bus Travel Constraints
     #These two constants state that person must finish their task and waiting period at node i, 
