@@ -53,6 +53,15 @@ def filter_list_of_tuples(target_list, target_position, target_value):
     return output
     
 
+def return_unique_values_in_tuples(input_tuples):
+    output = []
+    for i in input_tuples:
+        for j in i:
+            if not j in output:
+                output = output + [j]
+    return output
+    
+    
     
 
 def return_if_valid_reference(matrix, reference, output_if_false=0, output_if_true="value"):
@@ -91,20 +100,23 @@ def are_there_tasks_with_the_same_person_and_node():
 # Callback - use lazy constraints to eliminate sub-tours
 def subtourelim(model, where):
     if where == GRB.Callback.MIPSOL:
-        vals = model.cbGetSolution(model._x_vars)
+        vals            = model.cbGetSolution(model._x_vars)
         index_nodes_ids = model._index_nodes_ids
         input_objects   = model._input_objects  #actions, this can be slimmed down
-    
+        index_person_ids = model._index_person_ids
         #per person
         for n in [4, 5]: #action fix this
             # find the shortest cycle in the selected edge list
             tour = subtour(vals, n, index_nodes_ids, input_objects)
             if len(tour) < vals.sum("*", "*", "*", n):
                 # add subtour elimination constr. for every pair of cities in tour
-                model.cbLazy(gp.quicksum(model._vars[i, j]
-                                        for i, j in combinations(tour, 2))
-                            <= len(tour)-1)
-
+                #model.cbLazy(gp.quicksum(model._vars[i, j]
+                #                        for i, j in combinations(tour, 2))
+                #            <= len(tour)-1)
+                for n in index_person_ids:
+                    model.cbLazy(gp.quicksum(model._x_vars.sum(i, j, "*", n)
+                                            for i, j in combinations(tour, 2))
+                                <= len(tour)-1)
 
 """
 
@@ -114,20 +126,20 @@ def subtourelim(model, where):
 # Given a tuplelist of edges, find the shortest subtour, for person n
 def subtour(vals, n, index_nodes_ids, input_objects):
     
-    home = input_objects["PEOPLE"][n]["HOME_ID"]
+    #home = input_objects["PEOPLE"][n]["HOME_ID"]
     # make a list of edges selected in the solution
     edges = gp.tuplelist((i, j) for i,j,m,n_ in vals.keys()
                          if vals[i,j,m,n] > 0.5 and n == n_ )
     
-    unvisited = index_nodes_ids
-    #cycle = range(n+1)  # initial length has 1 more city
+    unvisited = return_unique_values_in_tuples(edges)
+    cycle = range(max(index_nodes_ids)+2)  # initial length has 1 more city
     #[key[2] for key in DTime.keys() if (key[0] == l and key[1] == i)]
-    cycle = list(index_nodes_ids) + [max(index_nodes_ids) + 1]  # initial length has 1 more city
+    #cycle = list(index_nodes_ids) + [max(index_nodes_ids) + 1]  # initial length has 1 more city
     while unvisited:  # true if list is non-empty
         thiscycle = []
         neighbors = unvisited
         while neighbors:
-            current = home
+            current = neighbors[0]
             thiscycle.append(current)
             unvisited.remove(current)
             neighbors = [j for i, j in edges.select(current, '*')
@@ -263,11 +275,11 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     del BUS_STOP_TO_LINE, NODE_TRAVEL_INFO, route_time_delay_single, route_lnum_single, origin, links_shortlist_a, links_shortlist_b, links_shortlist, node           
     
     #Home nodes i of person n
-    subset_Home_in = []
+    subset_Home_ni = []
     for person in input_objects["PEOPLE"].values():
         location_id = person["HOME_ID"]
         person_id   = person["PERSON_ID"]
-        subset_Home_in = subset_Home_in + [(location_id, person_id)]
+        subset_Home_ni = subset_Home_ni + [(person_id, location_id)]
     
     
 
@@ -360,6 +372,7 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     for i_id, j_id, mode_id in input_links["NODE_TRAVEL_INFO"].keys():
         value = input_links["NODE_TRAVEL_INFO"][i_id, j_id, mode_id]["TIME"]
         const_t_ijm[i_id, j_id, mode_id] = value
+        const_t_ijm[j_id, i_id, mode_id] = value
     del value
     md.update()
     
@@ -540,8 +553,8 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     #The person must enter and exit their home
     # "BCoF2"
     constr_BCoF2_string = "const_BCoF2_in[{},{}]"    
-    for (i, n) in subset_Home_in:
-        md.addConstr((x_vars.sum(node_id, "*", "*", person_id) <= 1 ), name = constr_BCoF2_string.format(i, n))
+    for (i, n) in subset_Home_ni:
+        md.addConstr((z_vars[i, n] >= 1 ), name = constr_BCoF2_string.format(n, i))
     del constr_BCoF2_string
     
     #The person must exit a node they visit
@@ -549,8 +562,9 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     constr_BCoF3_string = "const_BCoF3_in[{},{}]"    
     for j in index_nodes_ids:
         for n in index_person_ids:
-            md.addConstr((x_vars.sum("*", j, "*", n) >= x_vars.sum(j, "*", "*", n)), name = constr_BCoF3_string.format(i, n))
+            md.addConstr((x_vars.sum("*", j, "*", n) == x_vars.sum(j, "*", "*", n)), name = constr_BCoF3_string.format(j, n))
     del constr_BCoF3_string
+    
     
     
     
@@ -570,7 +584,7 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
                 for n in index_person_ids:
                     for t in index_task_ids:
                         for m in index_modes_of_transport:
-                            if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True) and not (j,n) in subset_Home_in:
+                            if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True) and not (n, j) in subset_Home_ni:
                                 expr_a_temp = w_vars[j, n] - w_vars[i, n] - aw_vars[j, n] - bw_vars[i, n]
                                 expr_b_temp = - x_vars[i, j, m, n] * const_t_ijm[i,j,m]
                                 #These expresions only count if there is a task for the person/node/task combination
@@ -628,29 +642,29 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     TT5_name_string =  "TT5_i{}n{}"
     for i in index_nodes_ids:
         for n in index_person_ids:
-            md.addConstr((y_vars.sum(i, "*", n) <= z_vars(i,n)), name = TT5_name_string.format(i,n))
+            md.addConstr((y_vars.sum(i, "*", n) <= z_vars[i,n]), name = TT5_name_string.format(i,n))
     
     #A person begins at home at the start of the day
     #TT6_in
     TT6_name_string =  "TT6_i{}n{}"
-    for (i,n) in subset_Home_in:
+    for (i,n) in subset_Home_ni:
         md.addConstr((w_vars[i, n] >= input_global["START"]), name = TT6_name_string.format(i,n))
     
-    #A person begins at home at the start of the day
+    #A person must return home at the end of the day
     #TT7_in
-    TT7_name_string =  "TT7_i{}n{}"
-    for (i,n) in subset_Home_in:
-        for j in index_nodes_ids:
+    TT7_name_string =  "TT7_n{}i{}j{}m{}"
+    for (n,j) in subset_Home_ni:
+        for i in index_nodes_ids:
             for m in index_modes_of_transport:
                 if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True):
-                    expr_a_temp = w_vars[i, n] + aw_vars[j, n] + bw_vars[i, n]
+                    expr_a_temp = w_vars[i, n] + aw_vars[i, n] + bw_vars[i, n]
                     expr_b_temp = x_vars[i, j, m, n] * const_t_ijm[i,j,m]
                     expr_c_temp = 0
                     for t in index_subset_tasks_in[i,n]:
                         expr_c_temp = expr_c_temp + (const_s_t[t] * y_vars[i, t, n]) + (const_st_istar[t] * ts_istar_vars[t])
                     expr_M_temp = M_time * (1 - x_vars[i,j,m,n])
                     
-                    md.addConstr((input_global["END"] + expr_M_temp >= expr_a_temp + expr_b_temp + expr_c_temp), name = TT7_name_string.format(i,n))
+                    md.addConstr((input_global["END"] + expr_M_temp >= expr_a_temp + expr_b_temp + expr_c_temp), name = TT7_name_string.format(n,i,j,m))
             
             
             
@@ -729,7 +743,7 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     
     
     md.Params.LazyConstraints   = 1
-    md.Params.TimeLimit         = 5 * 60
+    md.Params.TimeLimit         = 5 * 60 #gurobi works in seconds (model is in minutes)
     #md.optimize()
     
     #md.computeIIS()
@@ -745,6 +759,7 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     #print('Optimal tour: %s' % str(tour))
     print('Optimal cost: %g' % md.ObjVal)
     print('')
+    md.write(explicit_output_folder_location + "results_question_mark.lp")
 
 """Temporary section"""
 #This is a temporary section to allow for the inporting of inputs and running of the model function (above) 
