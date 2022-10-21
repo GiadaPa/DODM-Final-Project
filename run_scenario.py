@@ -128,8 +128,7 @@ def subtour(vals, n, index_nodes_ids, input_objects):
     
     #home = input_objects["PEOPLE"][n]["HOME_ID"]
     # make a list of edges selected in the solution
-    edges = gp.tuplelist((i, j) for i,j,m,n_ in vals.keys()
-                         if vals[i,j,m,n] > 0.5 and n == n_ )
+    edges = gp.tuplelist((i, j) for i,j,m,n_ in vals.keys() if vals[i,j,m,n] > 0.5 and n == n_ )
     
     unvisited = return_unique_values_in_tuples(edges)
     cycle = range(max(index_nodes_ids)+2)  # initial length has 1 more city
@@ -736,10 +735,6 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     #for m in index_modes_of_transport:
     #    for n in [3]:
     #        m._x_vars  = {key : value for key, value in zip(x_vars.keys(), x_vars.values()) if key[3] == 3}
-    md._x_vars          = x_vars
-    md._index_nodes_ids = index_nodes_ids
-    md._max_node_num    = max_node_num
-    md._input_objects   = input_objects
     
     
     md.Params.LazyConstraints   = 1
@@ -751,6 +746,15 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     
     md.optimize(subtourelim)
     print("Complete at: " + str(datetime.now()))
+    
+    md._x_vars          = x_vars
+    md._w_vars          = w_vars
+    md._index_nodes_ids = index_nodes_ids
+    md._max_node_num    = max_node_num
+    md._input_objects   = input_objects
+    
+    
+    
     #vals = md.getAttr('X', vars)
     #tour = subtour(vals)
     #assert len(tour) == n
@@ -760,6 +764,70 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     print('Optimal cost: %g' % md.ObjVal)
     print('')
     md.write(explicit_output_folder_location + "results_question_mark.lp")
+    
+    export_results(md, input_global, input_objects, input_links, index_person_ids, index_nodes_ids)
+    
+    
+    
+
+
+
+def export_results(model, input_global, input_objects, input_links, index_person_ids, index_nodes_ids):
+    
+    output_people_routes = dict()
+    output_people_route_methods = dict()
+    output_people_route_times = dict()
+    #ss = " - " #Stands for string spacer
+    x_vars = model._x_vars
+    w_vars = model._w_vars
+    
+    
+    #define tours    
+    for n_ in index_person_ids:
+        node            = input_objects["PEOPLE"][n_]["HOME_ID"]
+        entry_method    = "Home"
+        entry_time      = input_global["START"]
+        #output_people_routes = [node, entry_method, entry_time]
+        edges               = [(i, j, m) for i,j,m,n in x_vars.keys() if x_vars[i,j,m,n].X > 0.5 and n == n_ ]
+        tour                = [input_objects["PEOPLE"][n_]["HOME_ID"]]
+        tour_methods_entry  = ["Home"]
+        while edges:
+            print("Hello")
+            target_link = [(i,j,m) for (i,j,m) in edges if i == tour[-1]]
+            if len(target_link) >= 2:
+                print("Error - 1")
+            if len(target_link) == 0:
+                print("Error Detected - Subtour")
+                edges = []
+                break
+            tour                = tour               + [target_link[0][1]]
+            tour_methods_entry  = tour_methods_entry + [target_link[0][2]]
+            edges.remove(target_link[0])
+        output_people_routes[n_] = tour
+        output_people_route_methods[n_] = tour_methods_entry
+        
+    """#define travel times
+    output_people_route_methods = dict()
+    for n_ in index_person_ids:
+        tour_entry_methods = ["Home"]
+        for stop in output_people_routes[n_][1:]:
+            tour_entry_methods = tour_entry_methods + [w_vars[tour[stop],n_]]"""
+        
+        
+    #define arrival times
+    
+    for n_ in index_person_ids:
+        #entry_time = input_global["START"]
+        tour = output_people_routes[n_]
+        tour_times = []
+        for stop in tour[:-1]:
+            tour_times = tour_times + [w_vars[stop,n_].X]
+        tour_times = tour_times + ["End of day"]
+        output_people_route_times[n_] = tour_times
+    print("Hello")
+    
+    
+    
 
 """Temporary section"""
 #This is a temporary section to allow for the inporting of inputs and running of the model function (above) 
@@ -771,4 +839,4 @@ input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile
 input_objects, input_links, input_global = import_inputs(explicit_input_folder_location + input_file_names[0])
 
 run_scenario(input_objects, input_links, input_global)    
-    
+
