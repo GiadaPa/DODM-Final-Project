@@ -95,6 +95,11 @@ def are_there_tasks_with_the_same_person_and_node():
     return duplicate
     
         
+def return_combinations_for_a_tour():
+    
+    
+    
+    return "dd"
 
 
 # Callback - use lazy constraints to eliminate sub-tours
@@ -103,19 +108,20 @@ def subtourelim(model, where):
         vals            = model.cbGetSolution(model._x_vars)
         index_nodes_ids = model._index_nodes_ids
         input_objects   = model._input_objects  #actions, this can be slimmed down
-        index_person_ids = model._index_person_ids
+        index_person_ids= model._index_person_ids
         #per person
-        for n in [4, 5]: #action fix this
+        for n_ in list(index_person_ids): #action fix this
             # find the shortest cycle in the selected edge list
-            tour = subtour(vals, n, index_nodes_ids, input_objects)
-            if len(tour) < vals.sum("*", "*", "*", n):
+            tour, is_sub_tour_detected = subtour(vals, n_, index_nodes_ids, input_objects)
+            if is_sub_tour_detected == True:
                 # add subtour elimination constr. for every pair of cities in tour
                 #model.cbLazy(gp.quicksum(model._vars[i, j]
                 #                        for i, j in combinations(tour, 2))
                 #            <= len(tour)-1)
-                for n in index_person_ids:
-                    model.cbLazy(gp.quicksum(model._x_vars.sum(i, j, "*", n)
-                                            for i, j in combinations(tour, 2))
+                for n__ in index_person_ids:
+                    links = [(i, j, m, n3) for i,j,m,n3 in vals.keys() if n3 == n__ and i in tour and j in tour]
+                    model.cbLazy(gp.quicksum(model._x_vars[i4, j4, m4, n4]
+                                            for i4, j4, m4, n4 in links)
                                 <= len(tour)-1)
 
 """
@@ -145,7 +151,12 @@ def subtour(vals, n, index_nodes_ids, input_objects):
                          if j in unvisited]
         if len(cycle) > len(thiscycle):
             cycle = thiscycle
-    return cycle
+    if len(cycle) < len(return_unique_values_in_tuples(edges)):
+        is_sub_tour_detected = True
+    else:
+        is_sub_tour_detected = False
+
+    return cycle, is_sub_tour_detected
 
 def run_scenario(input_objects, input_links, input_global, disable_costly_constraints = True):
 
@@ -744,14 +755,23 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     #md.computeIIS()
     #md.write(explicit_output_folder_location +"infes_model.ilp")
     
+    md._x_vars              = x_vars
+    md._w_vars              = w_vars
+    md._index_nodes_ids     = index_nodes_ids
+    md._input_objects       = input_objects  #actions, this can be slimmed down
+    md._index_person_ids    = index_person_ids
+    md._max_node_num        = max_node_num
+    
+    md.Params.LazyConstraints = 1
+    md.update()
     md.optimize(subtourelim)
     print("Complete at: " + str(datetime.now()))
     
-    md._x_vars          = x_vars
-    md._w_vars          = w_vars
-    md._index_nodes_ids = index_nodes_ids
-    md._max_node_num    = max_node_num
-    md._input_objects   = input_objects
+    md._x_vars              = x_vars
+    md._w_vars              = w_vars
+    md._index_nodes_ids     = index_nodes_ids
+    md._max_node_num        = max_node_num
+    md._input_objects       = input_objects
     
     
     
@@ -792,7 +812,6 @@ def export_results(model, input_global, input_objects, input_links, index_person
         tour                = [input_objects["PEOPLE"][n_]["HOME_ID"]]
         tour_methods_entry  = ["Home"]
         while edges:
-            print("Hello")
             target_link = [(i,j,m) for (i,j,m) in edges if i == tour[-1]]
             if len(target_link) >= 2:
                 print("Error - 1")
@@ -824,7 +843,6 @@ def export_results(model, input_global, input_objects, input_links, index_person
             tour_times = tour_times + [w_vars[stop,n_].X]
         tour_times = tour_times + ["End of day"]
         output_people_route_times[n_] = tour_times
-    print("Hello")
     
     
     
