@@ -10,4 +10,8 @@ Additional Question for Proff:
 2. What is the requirement for visualsiation of the model?
 3. This project is already massive, is there an understanding of limiting the required work?
 4. I assume we dont have to inforce the requirement that no bus route will travel down the same arc (I believe this will be enforced by the inputs provided)
-5. Are we right in thinking that bus routes dont loop back on themselves
+5. The input suggests that the bus routes dont loop back on themselves?
+6. Currently if there are mutliple tasks that happen at the same node with a larger gap in time (meaning the person has to return to the node, we currently can't model for that)
+7. Can a person keep their bike during a task?
+8. If a person doesn't complete a task, should that come out of their personal budget? (Because cost is not part of the optimisation equation)
+
