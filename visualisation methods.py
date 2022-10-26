@@ -10,9 +10,10 @@ import seaborn as sns
 from os import listdir
 from os.path import isfile, join
 from import_function import import_inputs
+import pathlib
 
-explicit_input_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Discrete_Optimisation/DODM-Final-Project/Demo Instances/inputs_test/"
-explicit_output_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Discrete_Optimisation/DODM-Final-Project/Demo Instances/outputs_test/"
+explicit_input_folder_location  = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\inputs_test\\"
+explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\outputs_test\\"
 input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
 input_objects, input_links, input_global = import_inputs(explicit_input_folder_location + input_file_names[0])
 
