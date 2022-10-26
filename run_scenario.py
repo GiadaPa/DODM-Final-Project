@@ -16,10 +16,12 @@ import numpy as np
 from itertools import combinations
 import gurobipy as gp
 from gurobipy import GRB
+import os
 from os import listdir
 from os.path import isfile, join
 from datetime import datetime
 import copy
+import pathlib
 
 
 
@@ -33,8 +35,8 @@ from import_function import import_inputs
 
 print("Start at: " + str(datetime.now()))
 exec(open("import_function.py").read())
-explicit_input_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Discrete_Optimisation/DODM-Final-Project/Demo Instances/inputs_test/"
-explicit_output_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Discrete_Optimisation/DODM-Final-Project/Demo Instances/outputs_test/"
+explicit_input_folder_location  = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\inputs_test\\"
+explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\outputs_test\\"
 input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
 
 
