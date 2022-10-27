@@ -11,6 +11,7 @@
 import sys
 import math
 import random
+from numpy.lib import real
 import pandas as pd
 import numpy as np
 from itertools import combinations
@@ -24,7 +25,7 @@ import copy
 import pathlib
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-
+import pickle
 
 from import_function import import_inputs
 
@@ -45,6 +46,36 @@ input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile
 
 """Special Functionality"""
 #This section is for specialist functionality required to run optimisation (subtour elimitation, pulling of variables from input file etc)
+
+def save_values(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, model):
+    
+    #global input_global
+    #global input_objects
+    #global input_links
+    #global output_people_routes
+    #global output_people_route_methods
+    #global output_people_route_times
+    
+    save_file = {
+        "input_global" : input_global,
+        "input_objects" : input_objects,
+        "input_links" : input_links,
+        "output_people_routes" : output_people_routes,
+        "output_people_route_methods" : output_people_route_methods,
+        "output_people_route_times" : output_people_route_times#,
+        #"model" : model
+    }
+    
+    with open('saved_dictionary.pkl', 'wb') as f:
+        pickle.dump(save_file, f)
+        
+
+def load_values():
+    with open('saved_dictionary.pkl', 'rb') as f:
+        save_file = pickle.load(f)
+    return save_file
+
+    
 
 def filter_list_of_tuples(target_list, target_position, target_value):
     output = list(
@@ -161,12 +192,12 @@ def subtour(vals, n, index_nodes_ids, input_objects):
 
     return cycle, is_sub_tour_detected
 
-def run_scenario(input_objects, input_links, input_global, disable_costly_constraints = True):
+def run_scenario(input_objects, input_links, input_global, scenario_name = "instance_demo1_N10", disable_costly_constraints = False):
 
     
     """Begin of model creation """
     md = gp.Model()
-
+    are_there_tasks_with_the_same_person = are_there_tasks_with_the_same_person_and_node()
 
     """Indexes"""
     #Definition/notation of indexes (I'm unsure if we have to formally declare indexes) however we should list them here so notation is consistant
@@ -588,37 +619,36 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     #This controls the time (w) which the person arrives at node starts
     #This doesn’t apply where a person is returning to their home node|
     #TT1_ijntm
-    constr_TT1_name_string =  "TT1_i{}j{}n{}t{}m{}"
+    constr_TT1_name_string =  "TT1_i{}j{}n{}m{}"
     if disable_costly_constraints == False:
         temp_len = len(index_nodes_ids)
         for i in index_nodes_ids:
-            print(str(i) + "/" +  str(temp_len))
+            #print(str(i) + "/" +  str(temp_len))
             for j in index_nodes_ids:
                 for n in index_person_ids:
-                    for t in index_task_ids:
-                        for m in index_modes_of_transport:
-                            if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True) and not (n, j) in subset_Home_ni:
-                                expr_a_temp = w_vars[j, n] - w_vars[i, n] - aw_vars[j, n] - bw_vars[i, n]
-                                expr_b_temp = - x_vars[i, j, m, n] * const_t_ijm[i,j,m]
-                                #These expresions only count if there is a task for the person/node/task combination
-                                expr_c_temp = 0
-                                for t in index_subset_tasks_in[i,n]:
-                                    expr_c_temp = expr_c_temp - (const_s_t[t] * y_vars[i, t, n]) - (const_st_istar[t] * ts_istar_vars[t])
-                                    
-                                expr_d_temp = - M_time * (1 - x_vars[i,j,m,n])
+                    for m in index_modes_of_transport:
+                        if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True) and not (n, j) in subset_Home_ni:
+                            expr_a_temp = w_vars[j, n] - w_vars[i, n] - aw_vars[j, n] - bw_vars[i, n]
+                            expr_b_temp = - x_vars[i, j, m, n] * const_t_ijm[i,j,m]
+                            #These expresions only count if there is a task for the person/node/task combination
+                            expr_c_temp = 0
+                            for t in index_subset_tasks_in[i,n]:
+                                expr_c_temp = expr_c_temp - (const_s_t[t] * y_vars[i, t, n]) - (const_st_istar[t] * ts_istar_vars[t])
                                 
-                                
-                                md.addConstr((expr_a_temp + expr_b_temp + expr_c_temp - expr_d_temp >= 0), name = constr_TT1_name_string.format(i,j,n,t,m,))
-                                
-                                """Do not delete, this was the previous requirement to make the constraint, but is still a good example to kepp"""
-                                """expression_temp = 0
-                                for j in index_nodes_ids:
-                                    for m in index_modes_of_transport:
-                                        if return_if_valid_reference(x_vars, [i, j, m, n], False, True):
-                                            expression_temp += x_vars[i, j, m, n] * const_t_ijm[i,j,m] 
-                                md.addConstr((expression_temp>=1), name = "Test2")"""
+                            expr_d_temp = - M_time * (1 - x_vars[i,j,m,n])
+                            
+                            
+                            md.addConstr((expr_a_temp + expr_b_temp + expr_c_temp - expr_d_temp >= 0), name = constr_TT1_name_string.format(i,j,n,m))
+                            
+                            """Do not delete, this was the previous requirement to make the constraint, but is still a good example to kepp"""
+                            """expression_temp = 0
+                            for j in index_nodes_ids:
+                                for m in index_modes_of_transport:
+                                    if return_if_valid_reference(x_vars, [i, j, m, n], False, True):
+                                        expression_temp += x_vars[i, j, m, n] * const_t_ijm[i,j,m] 
+                            md.addConstr((expression_temp>=1), name = "Test2")"""
 
-                                #md.addConstr((sum(x_vars[i, j, m, n] * const_t_ijm[i,j,m] for j in index_nodes_ids for m in index_modes_of_transport if return_if_valid_reference(x_vars, [i, j, m, n], False, True))>1), name = "Test2")
+                            #md.addConstr((sum(x_vars[i, j, m, n] * const_t_ijm[i,j,m] for j in index_nodes_ids for m in index_modes_of_transport if return_if_valid_reference(x_vars, [i, j, m, n], False, True))>1), name = "Test2")
         del expr_a_temp, expr_b_temp, expr_c_temp, expr_d_temp
     print(datetime.now())
     md.update()
@@ -764,17 +794,21 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     md._input_objects       = input_objects  #actions, this can be slimmed down
     md._index_person_ids    = index_person_ids
     md._max_node_num        = max_node_num
+    md._y_vars              = y_vars
+    md._aw_vars             = aw_vars
     
     md.Params.LazyConstraints = 1
     md.update()
     md.optimize(subtourelim)
     print("Complete at: " + str(datetime.now()))
-    
+
     md._x_vars              = x_vars
     md._w_vars              = w_vars
     md._index_nodes_ids     = index_nodes_ids
     md._max_node_num        = max_node_num
     md._input_objects       = input_objects
+    md._y_vars              = y_vars
+    md._aw_vars             = aw_vars
     
     
     
@@ -786,16 +820,16 @@ def run_scenario(input_objects, input_links, input_global, disable_costly_constr
     #print('Optimal tour: %s' % str(tour))
     print('Optimal cost: %g' % md.ObjVal)
     print('')
-    md.write(explicit_output_folder_location + "results_question_mark.lp")
     
-    export_results(md, input_global, input_objects, input_links, index_person_ids, index_nodes_ids)
+    
+    export_results(md, input_global, input_objects, input_links, index_person_ids, index_nodes_ids, scenario_name = scenario_name)
     
     
     
 
 
 
-def export_results(model, input_global, input_objects, input_links, index_person_ids, index_nodes_ids):
+def export_results(model, input_global, input_objects, input_links, index_person_ids, index_nodes_ids, scenario_name):
     
     output_people_routes = dict()
     output_people_route_methods = dict()
@@ -803,7 +837,7 @@ def export_results(model, input_global, input_objects, input_links, index_person
     #ss = " - " #Stands for string spacer
     x_vars = model._x_vars
     w_vars = model._w_vars
-    
+    y_vars = model._y_vars
     
     #define tours    
     for n_ in index_person_ids:
@@ -846,49 +880,148 @@ def export_results(model, input_global, input_objects, input_links, index_person
             tour_times = tour_times + [w_vars[stop,n_].X]
         tour_times = tour_times + ["End of day"]
         output_people_route_times[n_] = tour_times
-    print("Hello")
+    #save_values(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, model)
+    visualise_results_and_export(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, scenario_name, model)
     
-def visualise_results_and_export():
-    places_x_coords = [place["PLACE_LON"] for place in input_objects["PLACES"].values()]
-    places_y_coords = [place["PLACE_LAT"] for place in input_objects["PLACES"].values()]
-    person_route    = [1,2,3]
-    person_modes    = ["WALKING", "BUS"]
+def visualise_results_and_export(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, scenario_name, model):
+    
+    object_names_list       = ["PEOPLE", "PLACES", "BIKE_STATIONS", "BUS_STOPS"]
+    location_prefix_list    = ["HOME",  "PLACE", "BIKE_STATION", "BUS_STOP"]
+    places_x_coords = dict()
+    places_y_coords = dict()
+    explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\outputs_test\\"
+    
+    for object_name, prefix in zip(object_names_list, location_prefix_list):
+        lon_string = prefix + "_LON"
+        lat_string = prefix + "_LAT"
+        id_string  = prefix + "_ID"
+        class_ = input_objects[object_name]
+        for object_ in class_.values():
+            id                  = object_[id_string]
+            places_x_coords[id] = object_[lon_string]
+            places_y_coords[id] = object_[lat_string]
+    
+    max_id  = max(places_x_coords.keys())
+    person_modes    = ["WALKING", "CYCLING", "BUS"]
 
-    visited_places_x_coords = []
-    visited_places_y_coords = []
-    for i in person_route:
-        visited_places_x_coords = visited_places_x_coords + [places_x_coords[i]]
-        visited_places_y_coords = visited_places_y_coords + [places_y_coords[i]]
+    visited_places_x_coords = dict()
+    visited_places_y_coords = dict()
+    for id_ in output_people_routes.keys():
+        output_people_routes_single = output_people_routes[id_]
+        visited_places_x_coords_single = []
+        visited_places_y_coords_single = []
+        for visted_location in output_people_routes_single:
+            visited_places_x_coords_single = visited_places_x_coords_single + [places_x_coords[visted_location]]
+            visited_places_y_coords_single = visited_places_y_coords_single + [places_y_coords[visted_location]]
+        visited_places_x_coords[id_] = visited_places_x_coords_single
+        visited_places_y_coords[id_] = visited_places_y_coords_single
+        
+    fig_cols    = 3
+    fig_rows    = math.ceil(max(output_people_routes.keys()) / fig_cols)
+    fig_width   = fig_cols * 6
+    fig_height  = fig_rows * 6
+    fig, axs = plt.subplots(fig_rows, fig_cols, figsize=(fig_width, fig_height), facecolor='w', edgecolor='k')
+    fig.subplots_adjust(hspace = .5, wspace=.001)
 
+    axs = axs.ravel()
 
-    for i in range(0, len(visited_places_x_coords)-1):
-            match person_modes[i]:
+    for person_id in output_people_routes.keys():
+        fig_id = person_id - 1
+        visited_places_x_coords_single = visited_places_x_coords[person_id]
+        visited_places_y_coords_single = visited_places_y_coords[person_id]
+        
+        for stop_number in range(0, len(output_people_route_methods[person_id])):
+            match output_people_route_methods[person_id][stop_number]:
                 case "WALKING":
                     color = "green"
                 case "CYCLING":
                     color = "orange"
                 case "BUS":
                     color = "red"
-            
-            plt.plot([visited_places_x_coords[i], visited_places_x_coords[i+1]], [visited_places_y_coords[i], visited_places_y_coords[i+1]], 'ro-', color = color)
-            
+                case "Home":
+                    color = "black"
+            if stop_number == max(range(0, len(output_people_route_methods[person_id]))):
+                break
+            axs[fig_id].plot([visited_places_x_coords_single[stop_number], visited_places_x_coords_single[stop_number+1]], [visited_places_y_coords_single[stop_number], visited_places_y_coords_single[stop_number+1]], 'ro-', color = color)
 
-
-    plt.xlabel('Long')
-    plt.ylabel('Lat')
-    plt.title('Route Map')
-    plt.scatter(places_x_coords, places_y_coords, s=20)
-    plt.scatter(visited_places_x_coords, visited_places_y_coords, s=20)
-    for i in range(0, len(places_x_coords)):
-        plt.annotate(i, (places_x_coords[i], places_y_coords[i]))
-    #ax1.scatter(range(study_range), pred_input[:study_range], s=20)
-    plt.legend(('Places',"visited"))
-
+        axs[fig_id].set_xlabel('Long')
+        axs[fig_id].set_ylabel('Lat')
+        axs[fig_id].set_title('Person ID' + str(person_id))
+        axs[fig_id].scatter(list(places_x_coords.values()), list(places_y_coords.values()), s=20)
+        axs[fig_id].scatter(list(visited_places_x_coords[person_id]), list(visited_places_y_coords[person_id]), s=20)
+        for place_id in places_x_coords.keys():
+            axs[fig_id].annotate(place_id, (places_x_coords[place_id], places_y_coords[place_id]))
+        #ax1.scatter(range(study_range), pred_input[:study_range], s=20)
+        axs[fig_id].legend(('Places',"visited"))
+        
+    fig.suptitle(scenario_name)
     
-    plt.show()
+    plt.savefig(explicit_output_folder_location + scenario_name + '.png')
+    #plt.show()
+    print_result(scenario_name, output_people_routes, output_people_route_methods, output_people_route_times, model)
+    
+    
+    
+def print_result(scenario_name, output_people_routes, output_people_route_methods, output_people_route_times, model):
+    explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\outputs_test\\"
+    w_vars        = model._w_vars
+    y_vars        = model._y_vars
+    input_objects = model._input_objects
+    aw_vars       = model._aw_vars
+    
+    with open(explicit_output_folder_location + scenario_name + '_output.txt', 'w') as f:
+        """Person Routes"""
+        f.write('PEOPLE ROUTE')
+        f.write('\n')
+        for person_id in output_people_routes.keys():
+            f.write('PERSON_ID ' + str(person_id))
+            f.write('\n')
+            for node, method, time in zip(output_people_routes[person_id], output_people_route_methods[person_id], output_people_route_times[person_id]):
+                if time == "End of day":
+                    time_string = "End of day"
+                else:
+                    time_string = convert_mins_to_time(float(time)) + " (" + str(time) + ")"
+                f.write(str(node) + " - " + str(method) + " - " + time_string)
+                f.write('\n')
+            f.write('\n')
+    
+        f.write('\n')
+        """Tasks completed report"""
+        f.write('TASKS')
+        f.write('\n')
+        f.write('ID IS_COMPLETED ARRIVED_TO_NODE STARTED_TIME PERSON_ID LOCATION_ID')
+        f.write('\n')
+        tasks = input_objects["TASKS"]
+        s = " "
+        for task_id in tasks.keys():
+            PERSON_ID       = tasks[task_id]["PERSON_ID"]
+            LOCATION_ID     = tasks[task_id]["PLACE_ID"]
+            STARTED_TIME    = w_vars[LOCATION_ID, PERSON_ID].X + aw_vars[LOCATION_ID, PERSON_ID].X
+            STARTED_TIME    = convert_mins_to_time(STARTED_TIME)
+            ARRIVED_TO_NODE = w_vars[LOCATION_ID, PERSON_ID].X
+            ARRIVED_TO_NODE = convert_mins_to_time(ARRIVED_TO_NODE)
+            IS_COMPLETED    = str(math.floor(y_vars[LOCATION_ID, task_id, PERSON_ID].X))
+            
+            
+            
+            f.write(str(task_id) +s+ IS_COMPLETED +s+ ARRIVED_TO_NODE +s+ STARTED_TIME +s+ str(PERSON_ID) +s+ str(LOCATION_ID))
+            f.write('\n')
+            
+    
+    
 
-
-
+def convert_mins_to_time(input_minutes):
+    hours   = math.floor(input_minutes / 60)
+    minutes = math.floor(input_minutes - 60 * hours)
+    if hours >= 10:
+        output_a = str(hours)
+    else:
+        output_a = "0" + str(hours)
+    if minutes >= 10:
+        output_b = str(minutes)
+    else:
+        output_b = "0" + str(minutes)
+    return output_a + ":" + output_b
     
 
 """Temporary section"""
@@ -899,6 +1032,16 @@ explicit_input_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Disc
 explicit_output_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Discrete_Optimisation/DODM-Final-Project/Demo Instances/outputs_test/"
 input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
 input_objects, input_links, input_global = import_inputs(explicit_input_folder_location + input_file_names[0])
+run_scenario(input_objects, input_links, input_global, scenario_name = "instance_demo1_N10", disable_costly_constraints = True)
 
-run_scenario(input_objects, input_links, input_global)    
-
+#save_file                   = load_values()
+#
+#input_global                = save_file["input_global"]
+#input_objects               = save_file["input_objects"]
+#input_links                 = save_file["input_links"]
+#output_people_routes        = save_file["output_people_routes"]
+#output_people_route_methods = save_file["output_people_route_methods"]
+#output_people_route_times   = save_file["output_people_route_times"]
+#model                       = save_file["model"]
+#
+#visualise_results_and_export(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, "instance_demo1_N10", model)
