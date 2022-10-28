@@ -202,82 +202,41 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     """Indexes"""
     #Definition/notation of indexes (I'm unsure if we have to formally declare indexes) however we should list them here so notation is consistant
 
-    #i,j        -> nodes
-    min_node_num = list(input_links["NODE_TRAVEL_INFO"].keys())[0][0]
-    max_node_num = list(input_links["NODE_TRAVEL_INFO"].keys())[0][0]
-    for node in list(input_links["NODE_TRAVEL_INFO"].keys()):
-        if node[0] < min_node_num:
-            min_node_num = node[0]
-        if node[0] > max_node_num:
-            max_node_num = node[0]
-        if node[1] < min_node_num:
-            min_node_num = node[1]
-        if node[1] > max_node_num:
-            max_node_num = node[1]
-    index_nodes_ids = range(min_node_num, max_node_num + 1)
-    #n -> person
-    index_person_ids = input_objects["PEOPLE"].keys()    
-    
-    #t -> task number
-    
-    #p -> place 
-
-    #b -> bike station
-
-    #l -> bus line number 
-    index_bus_lines = input_objects["BUS_LINES"].keys()
-
-    #d -> departure time number d.Each bus stops have a number of departure times,each of which are indexed with a number
-    #index_bus_departures = dict()
-    #df_bus_stops = pd.DataFrame(input_links["BUS_STOP_TO_LINE"].values(), index=input_links["BUS_STOP_TO_LINE"].keys())
-    #depots = df_bus_stops[df_bus_stops[0]==1]
-    
-    
-    """for l in index_bus_lines:
-        #       {k  : v   for k,   v     in points.items()                                                                   if v[0] < 5    and v[1] < 5}
-        depot_id = {key: value for key, value in zip(input_links["BUS_STOP_TO_LINE"].keys(), input_links["BUS_STOP_TO_LINE"].values()) if int(key[1]) == l and value == 1}
-        depot_id = depot_id[0]
-        temp_index_stops_id = {key[0]: value for key, value in zip(input_links["BUS_STOP_TO_LINE"].keys(), input_links["BUS_STOP_TO_LINE"].values()) if int(key[1]) == l}
-        for link in range(0, len(temp_index_stops_id)-1):
-            print("F")"""
-        
-        
-    
-    
-    #bikePeriod → period time for the bike quantity/spaces relaxation/assumption
-
-    #m -> transportation (m)ode
+    # n ∈ N → (person"/" people )
+    index_person_ids = input_objects["PEOPLE"].keys()
+    # t ∈ T → Tasks  
+    index_task_ids = input_objects["TASKS"].keys()
+    # h ∈ H → Home nodes
+    index_person_ids = input_objects["PEOPLE"].keys()
+    # p ∈ P → Place nodes
+    index_place_ids = input_objects["PLACES"].keys()
+    # b ∈ B → Bike Station nodes
+    index_bike_stations_ids = input_objects["BIKE_STATIONS"].keys()
+    # s ∈ S → Bus Stops 
+    index_bus_stops_ids = input_objects["BIKE_STATIONS"].keys()
+    # l ∈ L → Bus Lines
+    index_bus_lines_ids = input_objects["BUS_LINES"].keys()
+    # A := H ∪ P ∪ B ∪ S
+    index_nodes_ids = list(input_objects["PEOPLE"].keys()) + list(index_place_ids) + list(index_bike_stations_ids) + list(index_bus_stops_ids)
+    # i, j ∈ A → nodes 
+    #not needed
+    # m ∈ M → transportation (m)ode
     index_modes_of_transport = ["WALKING", "CYCLING", "BUS"]
 
-    
-    
-    
-    
-    
-    
-    
-    #r -> bus route number r
-        
-    
-    #t -> task number t
-    index_task_ids = input_objects["TASKS"].keys()
-    #bikePeriod -> period time for the bike quantity spaces relaxation assumption
 
     """Special Subsets"""
-    #Tasks related to node i and person n
+    # t ∈ T_(i,n) → Tasks related to node i and person n
     index_subset_tasks_in = dict()
     for node_id in index_nodes_ids:
         for person_id in index_person_ids:
             index_subset_tasks_in[node_id, person_id] = []
-           
     for task_id in input_objects["TASKS"].keys():
         node_id     = input_objects["TASKS"][task_id]["PLACE_ID"]
         person_id   = input_objects["TASKS"][task_id]["PERSON_ID"]
         task_id     = input_objects["TASKS"][task_id]["TASK_ID"]
         index_subset_tasks_in[node_id, person_id] = index_subset_tasks_in[node_id, person_id] + [task_id]
-
-    #node number num along line l starting with depot
-    #route[l, num]
+    
+    # i ∈ V_l → nodes along route l
     route_lnum = []
     BUS_STOP_TO_LINE = input_links["BUS_STOP_TO_LINE"]
     NODE_TRAVEL_INFO = input_links["NODE_TRAVEL_INFO"]
@@ -297,50 +256,51 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
                 raise Exception("Error check interaction between bus route input and model")
             route_lnum_single   = route_lnum_single + node
         route_lnum = route_lnum + [route_lnum_single]
-    
-    route_time_delay = []
-    for line in route_lnum:
-        route_time_delay_single = [0]
-        for i in range(0,len(line)-1):
-            time_delay = route_time_delay_single[-1] + [values["TIME"] for key, values in zip(NODE_TRAVEL_INFO.keys(), NODE_TRAVEL_INFO.values()) if (int(key[0]) == line[i] and int(key[1]) == line[i+1] and key[2] =="BUS")][0]
-            route_time_delay_single = route_time_delay_single + [time_delay]
-        route_time_delay = route_time_delay + [route_time_delay_single]
-    
-    #nodes with bus stops
-    subset_A_bus = []
-    del route_lnum_single
-    for route_lnum_single in route_lnum:
-        for i in route_lnum_single:
-            if not i in subset_A_bus:
-                subset_A_bus = subset_A_bus + [i]
-        
-        
-            
     del BUS_STOP_TO_LINE, NODE_TRAVEL_INFO, route_time_delay_single, route_lnum_single, origin, links_shortlist_a, links_shortlist_b, links_shortlist, node           
     
-    #Home nodes i of person n
+    # (n,i) ∈ Home → Home node i of each person
     subset_Home_ni = []
     for person in input_objects["PEOPLE"].values():
         location_id = person["HOME_ID"]
         person_id   = person["PERSON_ID"]
         subset_Home_ni = subset_Home_ni + [(person_id, location_id)]
     
+    # i ∈ route_l → nodes line l travels down
     
-
+    
+    # d ∈ departures_(l,i) → departure d for line l at node i
+    
+    
+    # (t,i,n) ∈ task_details_list_()
+    index_task_details_list = []
+    for task in input_objects["TASKS"].values():
+        t = task["TASK_ID"]
+        i = task["PLACE_ID"]
+        n = task["PERSON_ID"]
+        index_task_details_list = index_task_details_list + (t,i,n)
+    
+    # (t,i) ∈ personal_task_(n)
+    index_personal_tasks = dict()
+    for n in index_person_ids:
+        index_personal_tasks_single = []
+        for task in input_objects["TASKS"].values():
+            if task["PERSON_ID"] == n:
+                index_personal_tasks_single += [(task["TASK_ID"], task["PLACE_ID"])]
+        index_personal_tasks[n] = index_personal_tasks_single
+    
+    
     """Constants"""
     
     #cost of a task
-
     #task time window
     const_a_t = dict()
     const_b_t = dict()
-    
+    const_c_t = dict()
     for task in input_objects["TASKS"].values():
         const_a_t[task["TASK_ID"]] = task["START_TIME"]
         const_b_t[task["TASK_ID"]] = task["END_TIME"]
+        const_c_t[task["TASK_ID"]] = task["COST"]
     md.update()
-    
-    
     
 
     #task duration
@@ -368,12 +328,21 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     #latitude and longitude of a bus stop
 
     #cost of chosing bus as transportation mode
+    #not in use, referanced directly
 
     #set of bus departure times (line l, node i, departure time d)
     start_time  = input_global["START"]
     end_time    = input_global["END"]
+    route_time_delay = []
+    for line in route_lnum:
+        route_time_delay_single = [0]
+        for i in range(0,len(line)-1):
+            time_delay = route_time_delay_single[-1] + [values["TIME"] for key, values in zip(NODE_TRAVEL_INFO.keys(), NODE_TRAVEL_INFO.values()) if (int(key[0]) == line[i] and int(key[1]) == line[i+1] and key[2] =="BUS")][0]
+            route_time_delay_single = route_time_delay_single + [time_delay]
+        route_time_delay = route_time_delay + [route_time_delay_single]
+    
     DTime = dict()
-    for l in index_bus_lines:
+    for l in index_bus_lines_ids:
         freq = input_objects["BUS_LINES"][1]["FREQUENCY"]
         for i in route_lnum[l-1]:
             route_position  = route_lnum[l-1].index(i)
@@ -391,10 +360,9 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
 
     #Maximum number of people allowed on a bus (see assumptions)
 
-    #the time required to travel down arc ij via mode m
-
     #Penalty for a task t not performed
-
+    unfinished_task_penalty = 1000
+    
     #Max number of times a person n can change transportation mode
 
     #Boolean whether node i requests service from person n
@@ -402,14 +370,7 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     #Boolean whether node i is person n's home
 
     #Set of all starting points of person n
-    """Not in use"""
-    """const_h_in = dict()
-    for person_id in index_person_ids:
-        for node_id in index_nodes_ids:
-            const_h_in[node_id, person_id] = 0
-    for person_id in index_person_ids:
-        node_id = input_objects["PEOPLE"][person_id]["HOME_ID"]
-        const_h_in[node_id, person_id] = 1"""
+    #Not in use
         
     #travelling time associated to each arc
     const_t_ijm = dict()
@@ -419,16 +380,7 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
         const_t_ijm[j_id, i_id, mode_id] = value
     del value
     md.update()
-    
-    #this is the const_t_ijm extrended by an extra dimention (n) for use in a later constraint
-    """I will want to delete this constant"""
-    const_t_ijmn = dict()
-    for i_id, j_id, mode_id in input_links["NODE_TRAVEL_INFO"].keys():
-        for person_id in index_person_ids:
-            value = input_links["NODE_TRAVEL_INFO"][i_id, j_id, mode_id]["TIME"]
-            const_t_ijmn[i_id, j_id, mode_id, person_id] = value
-    del value
-    md.update()
+
     
     #whether a task is special (can be delayed)
     const_special_t = dict() #
@@ -436,12 +388,24 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
         const_special_t[task["TASK_ID"]] = task["IS_SPECIAL"]
     md.update() 
     
+    #fitness coef for a given arc
+    const_fitness_ijm = dict()
+    for m in index_modes_of_transport:
+        for i in index_nodes_ids:
+            for j in index_nodes_ids:
+                if i != j:
+                    value = input_links["NODE_TRAVEL_INFO"][i_id, j_id, mode_id]["FITNESS"]
+                    const_fitness_ijm[i,j,m] = value
+                    const_fitness_ijm[j,i,m] = value
+
     #Start of the day (mins)
     #No variable declared, taken from the input objects
     
     #End of the day (mins)
     #No variable declared, taken from the input objects
     
+    #weighting for fitness coefficient
+    fitness_weighting = 0.1
     
     """M (large) Constants"""
     M_time = input_global["END"] * 100
@@ -498,7 +462,7 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     #whether person n leaves node i via line l at departure number d
     bus_catch_vars = gp.tupledict()
     bus_catch_var_string = "bus_catch_vars_l{}i{}d{}__n{}"
-    for l in index_bus_lines:
+    for l in index_bus_lines_ids:
         for i in route_lnum[l-1]:
             departure_qty = max([key[2] for key in DTime.keys() if (key[0] == l and key[1] == i)])
             for d in range(0, departure_qty):
@@ -509,7 +473,7 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     #whether fare for bus is incurred for node i, n person
     fee_bus_vars = gp.tupledict()
     fee_bus_var_string = "fee_bus_vars_i{}__n{}"
-    for i in subset_A_bus:
+    for i in index_bus_stops_ids:
         for n in index_person_ids:
             fee_bus_vars[i,n] = md.addVar(vtype=GRB.BINARY, name=fee_bus_var_string.format(i,n))
     
@@ -533,7 +497,7 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
             bw_vars[node_id, person_id] = md.addVar(vtype=GRB.CONTINUOUS, lb=0, name=bw_var_string.format(node_id, person_id))
     
     #Amount of money on person n
-    
+    #referenced directly
     
     
     """Semi-Dependant Variables"""
@@ -609,11 +573,6 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
             md.addConstr((x_vars.sum("*", j, "*", n) == x_vars.sum(j, "*", "*", n)), name = constr_BCoF3_string.format(j, n))
     del constr_BCoF3_string
     
-    
-    
-    
-    """Dont DEL!!!! This is how to multiply a matrix of variables by a simular matrix of constrants"""
-    """md.addConstr((x_vars.prod(const_t_ijmn, "*", node_id, "*", person_id)  >= 0 ), name = "Test")"""
     print("Costly constraint at: " + str(datetime.now()))
     #Task Timing
     #This controls the time (w) which the person arrives at node starts
@@ -627,18 +586,18 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
             for j in index_nodes_ids:
                 for n in index_person_ids:
                     for m in index_modes_of_transport:
-                        if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True) and not (n, j) in subset_Home_ni:
-                            expr_a_temp = w_vars[j, n] - w_vars[i, n] - aw_vars[j, n] - bw_vars[i, n]
-                            expr_b_temp = - x_vars[i, j, m, n] * const_t_ijm[i,j,m]
+                        if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True) and not (n, i) in subset_Home_ni:
+                            expr_a_temp = w_vars[i, n] + aw_vars[j, n] + bw_vars[i, n]
+                            expr_b_temp = x_vars[i, j, m, n] * const_t_ijm[i,j,m]
                             #These expresions only count if there is a task for the person/node/task combination
                             expr_c_temp = 0
                             for t in index_subset_tasks_in[i,n]:
-                                expr_c_temp = expr_c_temp - (const_s_t[t] * y_vars[i, t, n]) - (const_st_istar[t] * ts_istar_vars[t])
+                                expr_c_temp = expr_c_temp + (const_s_t[t] * y_vars[i, t, n] + const_st_istar[t] * ts_istar_vars[t])
                                 
-                            expr_d_temp = - M_time * (1 - x_vars[i,j,m,n])
+                            expr_d_temp = M_time * (1 - x_vars[i,j,m,n])
                             
                             
-                            md.addConstr((expr_a_temp + expr_b_temp + expr_c_temp - expr_d_temp >= 0), name = constr_TT1_name_string.format(i,j,n,m))
+                            md.addConstr((w_vars[j, n] >= expr_a_temp + expr_b_temp + expr_c_temp - expr_d_temp), name = constr_TT1_name_string.format(i,j,n,m))
                             
                             """Do not delete, this was the previous requirement to make the constraint, but is still a good example to kepp"""
                             """expression_temp = 0
@@ -669,8 +628,8 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
         for n in index_person_ids:
             for t in index_task_ids:
                 if return_if_valid_reference(y_vars, [i, t, n], False, True):
-                    md.addConstr((const_a_t[t] - M_time * tstar_vars[t] - M_time * (1 - y_vars[i, t, n]) <= w_vars[i, n]), name = TT2after_name_string.format(i,n,t))
-                    md.addConstr((const_b_t[t] + M_time * tstar_vars[t] + M_time * (1 - y_vars[i, t, n]) >= w_vars[i, n]), name = TT2before_name_string.format(i,n,t))
+                    md.addConstr((const_a_t[t] - M_time * tstar_vars[t] - M_time * (1 - y_vars[i, t, n]) <= w_vars[i, n] + aw_vars[i, n]), name = TT2after_name_string.format(i,n,t))
+                    md.addConstr((const_b_t[t] + M_time * tstar_vars[t] + M_time * (1 - y_vars[i, t, n]) >= w_vars[i, n] + aw_vars[i, n]), name = TT2before_name_string.format(i,n,t))
                     #Note: Not sure the below constraint is needed
                     md.addConstr((tstar_vars[tasks_id] <= y_vars[i, t, n]), name = TT3_name_string.format(i,n,t))
     
@@ -693,27 +652,31 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     for (i,n) in subset_Home_ni:
         md.addConstr((w_vars[i, n] >= input_global["START"]), name = TT6_name_string.format(i,n))
     
-    #A person must return home at the end of the day
+    #A person leaves their home sometime after the start of the day
     #TT7_in
     TT7_name_string =  "TT7_n{}i{}j{}m{}"
-    for (n,j) in subset_Home_ni:
-        for i in index_nodes_ids:
+    for (n,i) in subset_Home_ni:
+        for j in index_nodes_ids:
             for m in index_modes_of_transport:
                 if i != j and return_if_valid_reference(x_vars, [i, j, m, n], False, True):
-                    expr_a_temp = w_vars[i, n] + aw_vars[i, n] + bw_vars[i, n]
-                    expr_b_temp = x_vars[i, j, m, n] * const_t_ijm[i,j,m]
-                    expr_c_temp = 0
+                    expr_a_temp = input_global["START"] + aw_vars[i, n] + bw_vars[i, n] + x_vars[i, j, m, n] * const_t_ijm[i,j,m]
+                    expr_b_temp = 0
                     for t in index_subset_tasks_in[i,n]:
-                        expr_c_temp = expr_c_temp + (const_s_t[t] * y_vars[i, t, n]) + (const_st_istar[t] * ts_istar_vars[t])
+                        expr_b_temp = expr_b_temp + (const_s_t[t] * y_vars[i, t, n] + const_st_istar[t] * ts_istar_vars[t])
                     expr_M_temp = M_time * (1 - x_vars[i,j,m,n])
                     
-                    md.addConstr((input_global["END"] + expr_M_temp >= expr_a_temp + expr_b_temp + expr_c_temp), name = TT7_name_string.format(n,i,j,m))
+                    md.addConstr((w_vars[j,n] >= expr_a_temp + expr_b_temp + expr_M_temp), name = TT7_name_string.format(n,i,j,m))
             
-            
-            
-            
-        
-        
+    #All time variables must be within the bounds of the day
+    #TT8_after_start
+    #TT8_before_end
+    TT8_after_start = "TT8_after_start_i{}n{}"
+    TT8_before_end  = "TT8_before_end_i{}n{}"
+    for i in index_nodes_ids:
+        for n in index_person_ids:
+            md.addConstr((w_vars[i,n] >= input_global["START"]),    name = TT8_after_start.format(i,n))
+            md.addConstr((w_vars[i,n] <= input_global["END"]),      name = TT8_before_end.format(i,n))
+    
     
     
     #Bus Travel Constraints
@@ -723,21 +686,21 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     #BTC1after_dri
     constr_BTC1before_dri_name_string   =  "BTC1before_l{}i{}d{}n{}"
     constr_BTC1after_dri_name_string    =  "BTC1after_l{}i{}d{}n{}"
-    for l in index_bus_lines:
+    for l in index_bus_lines_ids:
         for i in route_lnum[l-1]:
             departure_qty = max([key[2] for key in DTime.keys() if (key[0] == l and key[1] == i)])
             for d in range(0, departure_qty):
                 for n in index_person_ids:
-                    temp_expression_a = w_vars[i, n] + bw_vars[i, n]
+                    temp_expression_a = w_vars[i, n] + aw_vars[i, n] + bw_vars[i, n]
                     temp_expression_b = 0
                     for t in index_subset_tasks_in[i,n]:
                         temp_expression_b = temp_expression_b + (const_s_t[t] * y_vars[i, t, n]) + (const_st_istar[t] * ts_istar_vars[t])
                     temp_expression_c = DTime[l,i,d]
                     temp_expression_M = M_time * (1 - bus_catch_vars[l, i, d, n])
-                    temp_expression_relax = bus_relaxation
-                    md.addConstr((temp_expression_a + temp_expression_b <= temp_expression_c + temp_expression_M),                          name = constr_BTC1before_dri_name_string.format(l,i,d,n))
-                    md.addConstr((temp_expression_a + temp_expression_b >= temp_expression_c - temp_expression_M - temp_expression_relax),  name = constr_BTC1after_dri_name_string.format(l,i,d,n))
-    del temp_expression_a, temp_expression_b, temp_expression_c, temp_expression_relax
+                    
+                    md.addConstr((temp_expression_a + temp_expression_b <= temp_expression_c + temp_expression_M),                  name = constr_BTC1before_dri_name_string.format(l,i,d,n))
+                    md.addConstr((temp_expression_a + temp_expression_b >= temp_expression_c - temp_expression_M - bus_relaxation), name = constr_BTC1after_dri_name_string.format(l,i,d,n))
+    del temp_expression_a, temp_expression_b, temp_expression_c
     
     #A person can only leave a node once
     #BTC2_lin
@@ -746,7 +709,7 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     #BTC3_lin
     constr_BTC2_lin_name_string   =  "BTC2_l{}i{}n{}"
     constr_BTC3_lin_name_string   =  "BTC3_l{}i{}n{}"
-    for l in index_bus_lines:
+    for l in index_bus_lines_ids:
         for i in route_lnum[l-1]:
             for n in index_person_ids:
                 md.addConstr((bus_catch_vars.sum(l, i, "*", n) <= 1),                       name = constr_BTC2_lin_name_string.format(l,i,n))
@@ -755,16 +718,67 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     #Every time a person gets on a bus from another mode of transport, they must purchase a bus fare 
     #BTC4_lin
     constr_BTC4_ln_name_string   =  "BTC4_l{}n{}"
-    for i in subset_A_bus:
+    for i in index_bus_stops_ids:
         for n in index_person_ids:
             md.addConstr((x_vars.sum("*",i,"BUS",n) + fee_bus_vars[i,n] >= x_vars.sum(i,"*","BUS",n)), name = constr_BTC4_ln_name_string.format(i,n))
                 
+    #A maximum number of people who can be on a bus at the same time is Nℓ
+    #BTC5_lid
+    constr_BTC5_lid_name_string    =  "BTC5_l{}i{}d{}"
+    for l in index_bus_lines_ids:
+        for i in route_lnum[l-1]:
+            departure_qty = max([key[2] for key in DTime.keys() if (key[0] == l and key[1] == i)])
+            for d in range(0, departure_qty):
+                md.addConstr((bus_catch_vars.sum(l, i, d, "*") <= input_objects["BUS_LINES"][l]["MAX_NB_PEOPLE"]), name = constr_BTC5_lid_name_string.format(l,i,d))
+    
+    
+    """Bike Capacity Constraints"""
+    
+    
+    """Personal Spend Constraints"""
+    constr_PSC_n_name_string    =  "PSC_n{}"
+    for n in index_person_ids:
+        temp_expression_a = 0
+        for (t,i) in index_personal_tasks[n]:
+            temp_expression_a += const_c_t[t] * y_vars[i, t, n]
+        temp_expression_b = 0
+        for n in index_person_ids:
+            for i in index_nodes_ids:
+                temp_expression_b += fee_bus_vars[i,n] * input_global["COST_BUS_PER_RIDE"]
+        temp_expression_c = 0
+        for i in index_nodes_ids:
+            for j in index_nodes_ids:
+                if i != j:
+                    temp_expression_c += x_vars[i,j,"CYCLING",n] * const_t_ijm[i, j, "CYCLING"]
+        budget_n = input_objects["PEOPLE"][n]["BUDGET"]
+        md.addConstr((temp_expression_a + temp_expression_b + temp_expression_c <= budget_n), name = constr_PSC_n_name_string.format(n))
+        
+    del temp_expression_a, temp_expression_b, temp_expression_c, budget_n
+    
+    
     md.update()
     md.write(explicit_output_folder_location + "model_export.lp")
 
     
     """Set objective"""
-    md.setObjective(y_vars.sum("*","*","*"), GRB.MAXIMIZE)
+    objv_time_travelled = 0
+    objv_fitness_weighting = 0
+    for m in index_modes_of_transport:
+        for n in index_person_ids:
+            for i in index_nodes_ids:
+                for j in index_nodes_ids:
+                    if i != j:
+                        objv_time_travelled     = objv_time_travelled    + (x_vars[i,j,m,n] * const_t_ijm[i,j,m])
+                        objv_fitness_weighting  = objv_fitness_weighting + fitness_weighting * x_vars[i,j,m,n] * const_fitness_ijm[i,j,m]
+    
+    objv_unfinished_task_penality = 0
+    for task in input_objects["TASKS"].values():
+        t = task["TASK_ID"]
+        i = task["NODE_ID"]
+        n = task["PERSON_ID"]
+        objv_unfinished_task_penality = objv_unfinished_task_penality + (1 - y_vars[i,t,n]) * unfinished_task_penalty
+    
+    md.setObjective(objv_time_travelled + objv_fitness_weighting + objv_unfinished_task_penality, GRB.MINIMISE)
             
     """Compilation of model for export (export is used for model interrogation)"""
     md.update()   
