@@ -192,7 +192,7 @@ def subtour(vals, n, index_nodes_ids, input_objects):
 
     return cycle, is_sub_tour_detected
 
-def run_scenario(input_objects, input_links, input_global, scenario_name = "instance_demo1_N10", disable_costly_constraints = False):
+def run_scenario(input_objects, input_links, input_global, scenario_name = "instance_demo1_N10", rum_lim_minutes = 3, disable_costly_constraints = False, force_1_to_catch_a_bus = False):
 
     
     """Begin of model creation """
@@ -213,7 +213,7 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     # b ∈ B → Bike Station nodes
     index_bike_stations_ids = input_objects["BIKE_STATIONS"].keys()
     # s ∈ S → Bus Stops 
-    index_bus_stops_ids = input_objects["BIKE_STATIONS"].keys()
+    index_bus_stops_ids = input_objects["BUS_STOPS"].keys()
     # l ∈ L → Bus Lines
     index_bus_lines_ids = input_objects["BUS_LINES"].keys()
     # A := H ∪ P ∪ B ∪ S
@@ -256,7 +256,7 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
                 raise Exception("Error check interaction between bus route input and model")
             route_lnum_single   = route_lnum_single + node
         route_lnum = route_lnum + [route_lnum_single]
-    del BUS_STOP_TO_LINE, NODE_TRAVEL_INFO, route_time_delay_single, route_lnum_single, origin, links_shortlist_a, links_shortlist_b, links_shortlist, node           
+    
     
     # (n,i) ∈ Home → Home node i of each person
     subset_Home_ni = []
@@ -277,7 +277,7 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
         t = task["TASK_ID"]
         i = task["PLACE_ID"]
         n = task["PERSON_ID"]
-        index_task_details_list = index_task_details_list + (t,i,n)
+        index_task_details_list = index_task_details_list + [(t,i,n)]
     
     # (t,i) ∈ personal_task_(n)
     index_personal_tasks = dict()
@@ -420,7 +420,8 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     for i,j,m in input_links["NODE_TRAVEL_INFO"].keys():
         for n in index_person_ids:
             x_vars[i,j,m,n] = md.addVar(vtype=GRB.BINARY, name=x_var_string.format(i,j,m,n))
-            x_vars[j,i,m,n] = md.addVar(vtype=GRB.BINARY, name=x_var_string.format(j,i,m,n))
+            if m != "BUS":
+                x_vars[j,i,m,n] = md.addVar(vtype=GRB.BINARY, name=x_var_string.format(j,i,m,n))
     
     
     
@@ -558,11 +559,11 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
             md.addConstr((x_vars.sum(node_id, "*", "*", person_id) <= 1 ), name = constr_BCoFIs_string.format(node_id, person_id))
     del constr_BCoFIs_string
     
-    #The person must enter and exit their home
+    #The person must exit their home on foot
     # "BCoF2"
     constr_BCoF2_string = "const_BCoF2_in[{},{}]"    
     for (i, n) in subset_Home_ni:
-        md.addConstr((z_vars[i, n] >= 1 ), name = constr_BCoF2_string.format(n, i))
+        md.addConstr((x_vars.sum(i,"*","WALKING", n) == 1), name = constr_BCoF2_string.format(n, i))
     del constr_BCoF2_string
     
     #The person must exit a node they visit
@@ -665,7 +666,7 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
                         expr_b_temp = expr_b_temp + (const_s_t[t] * y_vars[i, t, n] + const_st_istar[t] * ts_istar_vars[t])
                     expr_M_temp = M_time * (1 - x_vars[i,j,m,n])
                     
-                    md.addConstr((w_vars[j,n] >= expr_a_temp + expr_b_temp + expr_M_temp), name = TT7_name_string.format(n,i,j,m))
+                    md.addConstr((w_vars[j,n] >= expr_a_temp + expr_b_temp - expr_M_temp), name = TT7_name_string.format(n,i,j,m))
             
     #All time variables must be within the bounds of the day
     #TT8_after_start
@@ -732,7 +733,16 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
                 md.addConstr((bus_catch_vars.sum(l, i, d, "*") <= input_objects["BUS_LINES"][l]["MAX_NB_PEOPLE"]), name = constr_BTC5_lid_name_string.format(l,i,d))
     
     
-    """Bike Capacity Constraints"""
+    
+    """Bike Constraints"""
+    #A person must start and end their bike travel at a bike stop
+    #If a person arrives at a non-bike stop via bike, they must leave by bike 
+    constr_BT1_jn_name_string    =  "BT1_j{}n{}"
+    for j in index_nodes_ids:
+        if not j in index_bike_stations_ids:
+            for n in index_person_ids:
+                    md.addConstr((x_vars.sum("*",j,"CYCLING",n) == x_vars.sum(j,"*","CYCLING",n)), name = constr_BT1_jn_name_string.format(j,n))
+    
     
     
     """Personal Spend Constraints"""
@@ -742,9 +752,8 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
         for (t,i) in index_personal_tasks[n]:
             temp_expression_a += const_c_t[t] * y_vars[i, t, n]
         temp_expression_b = 0
-        for n in index_person_ids:
-            for i in index_nodes_ids:
-                temp_expression_b += fee_bus_vars[i,n] * input_global["COST_BUS_PER_RIDE"]
+        for i in index_bus_stops_ids:
+            temp_expression_b += fee_bus_vars[i,n] * input_global["COST_BUS_PER_RIDE"]
         temp_expression_c = 0
         for i in index_nodes_ids:
             for j in index_nodes_ids:
@@ -755,6 +764,13 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
         
     del temp_expression_a, temp_expression_b, temp_expression_c, budget_n
     
+    """Optional Test Constraints"""
+    #This is an optional constraint to test if the bus functionality works
+    constr_OTC_bus_name_string    =  "OTC_bus"
+    if force_1_to_catch_a_bus == True:
+        md.addConstr((x_vars.sum("*","*","BUS",1) >= 1), name = constr_OTC_bus_name_string)
+    
+    
     
     md.update()
     md.write(explicit_output_folder_location + "model_export.lp")
@@ -763,22 +779,22 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     """Set objective"""
     objv_time_travelled = 0
     objv_fitness_weighting = 0
-    for m in index_modes_of_transport:
-        for n in index_person_ids:
-            for i in index_nodes_ids:
-                for j in index_nodes_ids:
-                    if i != j:
-                        objv_time_travelled     = objv_time_travelled    + (x_vars[i,j,m,n] * const_t_ijm[i,j,m])
-                        objv_fitness_weighting  = objv_fitness_weighting + fitness_weighting * x_vars[i,j,m,n] * const_fitness_ijm[i,j,m]
+    for n in index_person_ids:
+        for i,j,m in input_links["NODE_TRAVEL_INFO"].keys():
+            objv_time_travelled     += x_vars[i,j,m,n] * const_t_ijm[i,j,m]
+            objv_fitness_weighting  += fitness_weighting * x_vars[i,j,m,n] * const_fitness_ijm[i,j,m]
+            if m != "BUS":
+                objv_time_travelled     += x_vars[j,i,m,n] * const_t_ijm[j,i,m]
+                objv_fitness_weighting  += fitness_weighting * x_vars[j,i,m,n] * const_fitness_ijm[j,i,m]
     
     objv_unfinished_task_penality = 0
     for task in input_objects["TASKS"].values():
         t = task["TASK_ID"]
-        i = task["NODE_ID"]
+        i = task["PLACE_ID"]
         n = task["PERSON_ID"]
         objv_unfinished_task_penality = objv_unfinished_task_penality + (1 - y_vars[i,t,n]) * unfinished_task_penalty
     
-    md.setObjective(objv_time_travelled + objv_fitness_weighting + objv_unfinished_task_penality, GRB.MINIMISE)
+    md.setObjective(objv_time_travelled + objv_fitness_weighting + objv_unfinished_task_penality, GRB.MINIMIZE)
             
     """Compilation of model for export (export is used for model interrogation)"""
     md.update()   
@@ -795,8 +811,6 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     #        m._x_vars  = {key : value for key, value in zip(x_vars.keys(), x_vars.values()) if key[3] == 3}
     
     
-    md.Params.LazyConstraints   = 1
-    md.Params.TimeLimit         = 5 * 60 #gurobi works in seconds (model is in minutes)
     #md.optimize()
     
     #md.computeIIS()
@@ -807,11 +821,11 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     md._index_nodes_ids     = index_nodes_ids
     md._input_objects       = input_objects  #actions, this can be slimmed down
     md._index_person_ids    = index_person_ids
-    md._max_node_num        = max_node_num
     md._y_vars              = y_vars
     md._aw_vars             = aw_vars
     
     md.Params.LazyConstraints = 1
+    md.setParam('TimeLimit', rum_lim_minutes*60)
     md.update()
     md.optimize(subtourelim)
     print("Complete at: " + str(datetime.now()))
@@ -819,7 +833,6 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     md._x_vars              = x_vars
     md._w_vars              = w_vars
     md._index_nodes_ids     = index_nodes_ids
-    md._max_node_num        = max_node_num
     md._input_objects       = input_objects
     md._y_vars              = y_vars
     md._aw_vars             = aw_vars
@@ -861,7 +874,7 @@ def export_results(model, input_global, input_objects, input_links, index_person
         #output_people_routes = [node, entry_method, entry_time]
         edges               = [(i, j, m) for i,j,m,n in x_vars.keys() if x_vars[i,j,m,n].X > 0.5 and n == n_ ]
         tour                = [input_objects["PEOPLE"][n_]["HOME_ID"]]
-        tour_methods_entry  = ["Home"]
+        tour_methods_entry  = []
         while edges:
             target_link = [(i,j,m) for (i,j,m) in edges if i == tour[-1]]
             if len(target_link) >= 2:
@@ -889,10 +902,9 @@ def export_results(model, input_global, input_objects, input_links, index_person
     for n_ in index_person_ids:
         #entry_time = input_global["START"]
         tour = output_people_routes[n_]
-        tour_times = []
-        for stop in tour[:-1]:
+        tour_times = [input_global["START"]]
+        for stop in tour[1:]:
             tour_times = tour_times + [w_vars[stop,n_].X]
-        tour_times = tour_times + ["End of day"]
         output_people_route_times[n_] = tour_times
     #save_values(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, model)
     visualise_results_and_export(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, scenario_name, model)
@@ -945,18 +957,17 @@ def visualise_results_and_export(input_objects, input_links, input_global, outpu
         visited_places_y_coords_single = visited_places_y_coords[person_id]
         
         for stop_number in range(0, len(output_people_route_methods[person_id])):
-            match output_people_route_methods[person_id][stop_number]:
+            label = output_people_route_methods[person_id][stop_number]
+            match label:
                 case "WALKING":
                     color = "green"
                 case "CYCLING":
-                    color = "orange"
+                    color = "blue"
                 case "BUS":
                     color = "red"
                 case "Home":
-                    color = "black"
-            if stop_number == max(range(0, len(output_people_route_methods[person_id]))):
-                break
-            axs[fig_id].plot([visited_places_x_coords_single[stop_number], visited_places_x_coords_single[stop_number+1]], [visited_places_y_coords_single[stop_number], visited_places_y_coords_single[stop_number+1]], 'ro-', color = color)
+                    break
+            axs[fig_id].plot([visited_places_x_coords_single[stop_number], visited_places_x_coords_single[stop_number+1]], [visited_places_y_coords_single[stop_number], visited_places_y_coords_single[stop_number+1]], 'ro-', label = label,color = color)
 
         axs[fig_id].set_xlabel('Long')
         axs[fig_id].set_ylabel('Lat')
@@ -966,12 +977,12 @@ def visualise_results_and_export(input_objects, input_links, input_global, outpu
         for place_id in places_x_coords.keys():
             axs[fig_id].annotate(place_id, (places_x_coords[place_id], places_y_coords[place_id]))
         #ax1.scatter(range(study_range), pred_input[:study_range], s=20)
-        axs[fig_id].legend(('Places',"visited"))
+        #axs[fig_id].legend(('WALKING',"CYCLING","BUS"))
         
     fig.suptitle(scenario_name)
     
     plt.savefig(explicit_output_folder_location + scenario_name + '.png')
-    #plt.show()
+    plt.show()
     print_result(scenario_name, output_people_routes, output_people_route_methods, output_people_route_times, model)
     
     
@@ -991,10 +1002,7 @@ def print_result(scenario_name, output_people_routes, output_people_route_method
             f.write('PERSON_ID ' + str(person_id))
             f.write('\n')
             for node, method, time in zip(output_people_routes[person_id], output_people_route_methods[person_id], output_people_route_times[person_id]):
-                if time == "End of day":
-                    time_string = "End of day"
-                else:
-                    time_string = convert_mins_to_time(float(time)) + " (" + str(time) + ")"
+                time_string = convert_mins_to_time(float(time)) + " (" + str(math.floor(time * 10)/10) + ")"
                 f.write(str(node) + " - " + str(method) + " - " + time_string)
                 f.write('\n')
             f.write('\n')
@@ -1020,6 +1028,7 @@ def print_result(scenario_name, output_people_routes, output_people_route_method
             
             f.write(str(task_id) +s+ IS_COMPLETED +s+ ARRIVED_TO_NODE +s+ STARTED_TIME +s+ str(PERSON_ID) +s+ str(LOCATION_ID))
             f.write('\n')
+    print("")
             
     
     
@@ -1046,8 +1055,8 @@ explicit_input_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Disc
 explicit_output_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Discrete_Optimisation/DODM-Final-Project/Demo Instances/outputs_test/"
 input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
 input_objects, input_links, input_global = import_inputs(explicit_input_folder_location + input_file_names[0])
-run_scenario(input_objects, input_links, input_global, scenario_name = "instance_demo1_N10", disable_costly_constraints = True)
-
+run_scenario(input_objects, input_links, input_global, scenario_name = "instance_demo1_N10", rum_lim_minutes = 0.25, disable_costly_constraints = False, force_1_to_catch_a_bus = False)
+print("")
 #save_file                   = load_values()
 #
 #input_global                = save_file["input_global"]
