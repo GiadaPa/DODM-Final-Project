@@ -1,0 +1,76 @@
+\ Model _copy
+\ LP format - for model browsing. Use MPS format to capture full model detail.
+Minimize
+ 
+Subject To
+ const_BCoFOs_np[8,8]: x_var_i8j1mWALKING__n8 + x_var_i8j1mCYCLING__n8
+   + x_var_i8j2mWALKING__n8 + x_var_i8j2mCYCLING__n8
+   + x_var_i8j3mWALKING__n8 + x_var_i8j3mCYCLING__n8
+   + x_var_i8j4mWALKING__n8 + x_var_i8j4mCYCLING__n8
+   + x_var_i8j5mWALKING__n8 + x_var_i8j5mCYCLING__n8
+   + x_var_i8j6mWALKING__n8 + x_var_i8j6mCYCLING__n8
+   + x_var_i8j7mWALKING__n8 + x_var_i8j7mCYCLING__n8
+   + x_var_i8j9mWALKING__n8 + x_var_i8j9mCYCLING__n8
+   + x_var_i8j10mWALKING__n8 + x_var_i8j10mCYCLING__n8
+   + x_var_i8j11mWALKING__n8 + x_var_i8j11mCYCLING__n8
+   + x_var_i8j12mWALKING__n8 + x_var_i8j12mCYCLING__n8
+   + x_var_i8j13mWALKING__n8 + x_var_i8j13mCYCLING__n8
+   + x_var_i8j14mWALKING__n8 + x_var_i8j14mCYCLING__n8
+   + x_var_i8j15mWALKING__n8 + x_var_i8j15mCYCLING__n8
+   + x_var_i8j16mWALKING__n8 + x_var_i8j16mCYCLING__n8
+   + x_var_i8j17mWALKING__n8 + x_var_i8j17mCYCLING__n8
+   + x_var_i8j18mWALKING__n8 + x_var_i8j18mCYCLING__n8
+   + x_var_i8j19mWALKING__n8 + x_var_i8j19mCYCLING__n8
+   + x_var_i8j20mWALKING__n8 + x_var_i8j20mCYCLING__n8
+   + x_var_i8j21mWALKING__n8 + x_var_i8j21mCYCLING__n8
+   + x_var_i8j22mWALKING__n8 + x_var_i8j22mCYCLING__n8
+   + x_var_i8j23mWALKING__n8 + x_var_i8j23mCYCLING__n8
+   + x_var_i8j24mWALKING__n8 + x_var_i8j24mCYCLING__n8
+   + x_var_i8j25mWALKING__n8 + x_var_i8j25mCYCLING__n8
+   + x_var_i8j26mWALKING__n8 + x_var_i8j26mCYCLING__n8
+   + x_var_i8j27mWALKING__n8 + x_var_i8j27mCYCLING__n8
+   + x_var_i8j28mWALKING__n8 + x_var_i8j28mCYCLING__n8
+   + x_var_i8j29mWALKING__n8 + x_var_i8j29mCYCLING__n8
+   + x_var_i8j30mWALKING__n8 + x_var_i8j30mCYCLING__n8
+   + x_var_i8j31mWALKING__n8 + x_var_i8j31mCYCLING__n8
+   + x_var_i8j32mWALKING__n8 + x_var_i8j32mCYCLING__n8
+   + x_var_i8j33mWALKING__n8 + x_var_i8j33mCYCLING__n8
+   + x_var_i8j34mWALKING__n8 + x_var_i8j34mCYCLING__n8
+   + x_var_i8j35mWALKING__n8 + x_var_i8j35mCYCLING__n8
+   + x_var_i8j36mWALKING__n8 + x_var_i8j36mCYCLING__n8
+   + x_var_i8j37mWALKING__n8 + x_var_i8j37mCYCLING__n8 <= 1
+ TT7_n8i8j17mWALKING: 107979.6 x_var_i8j17mWALKING__n8 - aw_vars_i8__n8
+   - bw_vars_i8__n8 + w_var_i17_n8 >= 108480
+ TT7_n8i8j29mCYCLING: 107982.6 x_var_i8j29mCYCLING__n8 - aw_vars_i8__n8
+   - bw_vars_i8__n8 + w_var_i29_n8 >= 108480
+ TT8_before_end_i17n8: w_var_i17_n8 <= 1080
+ TT8_before_end_i29n8: w_var_i29_n8 <= 1080
+Bounds
+ w_var_i17_n8 free
+ w_var_i29_n8 free
+Binaries
+ x_var_i8j1mWALKING__n8 x_var_i8j1mCYCLING__n8 x_var_i8j2mWALKING__n8
+ x_var_i8j2mCYCLING__n8 x_var_i8j3mWALKING__n8 x_var_i8j3mCYCLING__n8
+ x_var_i8j4mWALKING__n8 x_var_i8j4mCYCLING__n8 x_var_i8j5mWALKING__n8
+ x_var_i8j5mCYCLING__n8 x_var_i8j6mWALKING__n8 x_var_i8j6mCYCLING__n8
+ x_var_i8j7mWALKING__n8 x_var_i8j7mCYCLING__n8 x_var_i8j9mWALKING__n8
+ x_var_i8j9mCYCLING__n8 x_var_i8j10mWALKING__n8 x_var_i8j10mCYCLING__n8
+ x_var_i8j11mWALKING__n8 x_var_i8j11mCYCLING__n8 x_var_i8j12mWALKING__n8
+ x_var_i8j12mCYCLING__n8 x_var_i8j13mWALKING__n8 x_var_i8j13mCYCLING__n8
+ x_var_i8j14mWALKING__n8 x_var_i8j14mCYCLING__n8 x_var_i8j15mWALKING__n8
+ x_var_i8j15mCYCLING__n8 x_var_i8j16mWALKING__n8 x_var_i8j16mCYCLING__n8
+ x_var_i8j17mWALKING__n8 x_var_i8j17mCYCLING__n8 x_var_i8j18mWALKING__n8
+ x_var_i8j18mCYCLING__n8 x_var_i8j19mWALKING__n8 x_var_i8j19mCYCLING__n8
+ x_var_i8j20mWALKING__n8 x_var_i8j20mCYCLING__n8 x_var_i8j21mWALKING__n8
+ x_var_i8j21mCYCLING__n8 x_var_i8j22mWALKING__n8 x_var_i8j22mCYCLING__n8
+ x_var_i8j23mWALKING__n8 x_var_i8j23mCYCLING__n8 x_var_i8j24mWALKING__n8
+ x_var_i8j24mCYCLING__n8 x_var_i8j25mWALKING__n8 x_var_i8j25mCYCLING__n8
+ x_var_i8j26mWALKING__n8 x_var_i8j26mCYCLING__n8 x_var_i8j27mWALKING__n8
+ x_var_i8j27mCYCLING__n8 x_var_i8j28mWALKING__n8 x_var_i8j28mCYCLING__n8
+ x_var_i8j29mWALKING__n8 x_var_i8j29mCYCLING__n8 x_var_i8j30mWALKING__n8
+ x_var_i8j30mCYCLING__n8 x_var_i8j31mWALKING__n8 x_var_i8j31mCYCLING__n8
+ x_var_i8j32mWALKING__n8 x_var_i8j32mCYCLING__n8 x_var_i8j33mWALKING__n8
+ x_var_i8j33mCYCLING__n8 x_var_i8j34mWALKING__n8 x_var_i8j34mCYCLING__n8
+ x_var_i8j35mWALKING__n8 x_var_i8j35mCYCLING__n8 x_var_i8j36mWALKING__n8
+ x_var_i8j36mCYCLING__n8 x_var_i8j37mWALKING__n8 x_var_i8j37mCYCLING__n8
+End
