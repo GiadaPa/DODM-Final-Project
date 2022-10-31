@@ -192,7 +192,7 @@ def subtour(vals, n, index_nodes_ids, input_objects):
 
     return cycle, is_sub_tour_detected
 
-def run_scenario(input_objects, input_links, input_global, scenario_name = "instance_demo1_N10", rum_lim_minutes = 3, disable_costly_constraints = False, force_1_to_catch_a_bus = False):
+def run_scenario(input_objects, input_links, input_global, scenario_name = "instance_demo1_N10", rum_lim_minutes = 3, disable_costly_constraints = False, force_1_to_catch_a_bus = False, show_fig = False):
 
     
     """Begin of model creation """
@@ -832,11 +832,18 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
 
     md._x_vars              = x_vars
     md._w_vars              = w_vars
+    
     md._index_nodes_ids     = index_nodes_ids
     md._input_objects       = input_objects
     md._y_vars              = y_vars
     md._aw_vars             = aw_vars
     
+    md._index_person_ids    = index_person_ids
+    md._y_vars              = y_vars
+    md._const_t_ijm         = const_t_ijm
+    md._fitness_weighting   = fitness_weighting
+    md._const_fitness_ijm   = const_fitness_ijm
+    md._unfinished_task_penalty = unfinished_task_penalty
     
     
     #vals = md.getAttr('X', vars)
@@ -849,14 +856,14 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     print('')
     
     
-    export_results(md, input_global, input_objects, input_links, index_person_ids, index_nodes_ids, scenario_name = scenario_name)
+    export_results(md, input_global, input_objects, input_links, index_person_ids, index_nodes_ids, scenario_name = scenario_name, show_fig = show_fig)
     
     
     
 
 
 
-def export_results(model, input_global, input_objects, input_links, index_person_ids, index_nodes_ids, scenario_name):
+def export_results(model, input_global, input_objects, input_links, index_person_ids, index_nodes_ids, scenario_name, show_fig):
     
     output_people_routes = dict()
     output_people_route_methods = dict()
@@ -907,9 +914,9 @@ def export_results(model, input_global, input_objects, input_links, index_person
             tour_times = tour_times + [w_vars[stop,n_].X]
         output_people_route_times[n_] = tour_times
     #save_values(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, model)
-    visualise_results_and_export(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, scenario_name, model)
+    visualise_results_and_export(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, scenario_name, model, show_fig)
     
-def visualise_results_and_export(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, scenario_name, model):
+def visualise_results_and_export(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, scenario_name, model, show_fig):
     
     object_names_list       = ["PEOPLE", "PLACES", "BIKE_STATIONS", "BUS_STOPS"]
     location_prefix_list    = ["HOME",  "PLACE", "BIKE_STATION", "BUS_STOP"]
@@ -979,12 +986,36 @@ def visualise_results_and_export(input_objects, input_links, input_global, outpu
         #ax1.scatter(range(study_range), pred_input[:study_range], s=20)
         #axs[fig_id].legend(('WALKING',"CYCLING","BUS"))
         
-    fig.suptitle(scenario_name)
+    fig.suptitle(scenario_name[:-4])
     
-    plt.savefig(explicit_output_folder_location + scenario_name + '.png')
-    plt.show()
+    plt.savefig(explicit_output_folder_location + scenario_name[:-4] + '.png')
+    if show_fig == True:
+        plt.show()
     print_result(scenario_name, output_people_routes, output_people_route_methods, output_people_route_times, model)
     
+def return_component_scores(model):
+    index_person_ids        = model._index_person_ids
+    x_vars                  = model._x_vars
+    y_vars                  = model._y_vars
+    const_t_ijm             = model._const_t_ijm
+    fitness_weighting       = model._fitness_weighting
+    const_fitness_ijm       = model._const_fitness_ijm
+    unfinished_task_penalty = model._unfinished_task_penalty
+    objv_unfinished_task_penality = 0; objv_time_travelled = 0; objv_fitness_weighting = 0
+    for n in index_person_ids:
+        for i,j,m in input_links["NODE_TRAVEL_INFO"].keys():
+            objv_time_travelled     += x_vars[i,j,m,n].X * const_t_ijm[i,j,m]
+            objv_fitness_weighting  += fitness_weighting * x_vars[i,j,m,n].X * const_fitness_ijm[i,j,m]
+            if m != "BUS":
+                objv_time_travelled     += x_vars[j,i,m,n].X * const_t_ijm[j,i,m]
+                objv_fitness_weighting  += fitness_weighting * x_vars[j,i,m,n].X * const_fitness_ijm[j,i,m]
+    
+    objv_unfinished_task_penality = 0
+    for task in input_objects["TASKS"].values():
+        t = task["TASK_ID"]; i = task["PLACE_ID"]; n = task["PERSON_ID"]
+        objv_unfinished_task_penality = objv_unfinished_task_penality + (1 - y_vars[i,t,n].X) * unfinished_task_penalty
+    
+    return objv_time_travelled, objv_fitness_weighting, objv_unfinished_task_penality
     
     
 def print_result(scenario_name, output_people_routes, output_people_route_methods, output_people_route_times, model):
@@ -994,13 +1025,23 @@ def print_result(scenario_name, output_people_routes, output_people_route_method
     input_objects = model._input_objects
     aw_vars       = model._aw_vars
     
-    with open(explicit_output_folder_location + scenario_name + '_output.txt', 'w') as f:
+    with open(explicit_output_folder_location + scenario_name[:-4] + '_output.txt', 'w') as f:
+        """Scores"""
+        f.write('Scores')
+        f.write('Final Score: %g' % model.ObjVal)
+        f.write('\n')
+        objv_time_travelled, objv_fitness_weighting, objv_unfinished_task_penality = return_component_scores(model)
+        f.write('time travelled: '              + str(math.floor(objv_time_travelled*100)/100)          + '\n')
+        f.write('fitness score: '               + str(math.floor(objv_fitness_weighting*100)/100)       + '\n')
+        f.write('unfinished task penality: '    + str(math.floor(objv_unfinished_task_penality*100)/100)+ '\n')
+        f.write('\n')
+        
         """Person Routes"""
         f.write('PEOPLE ROUTE')
         f.write('\n')
         for person_id in output_people_routes.keys():
-            f.write('PERSON_ID ' + str(person_id))
-            f.write('\n')
+            f.write('PERSON_ID ' + str(person_id) + '\n')
+            f.write('NODE_ID  MODE_OF_DEPARTURE TIME_OF_ARRIVAL')
             for node, method, time in zip(output_people_routes[person_id], output_people_route_methods[person_id], output_people_route_times[person_id]):
                 time_string = convert_mins_to_time(float(time)) + " (" + str(math.floor(time * 10)/10) + ")"
                 f.write(str(node) + " - " + str(method) + " - " + time_string)
@@ -1051,8 +1092,8 @@ def convert_mins_to_time(input_minutes):
 #This is a temporary section to allow for the inporting of inputs and running of the model function (above) 
 #for a single run for the proposes of development
 
-explicit_input_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Discrete_Optimisation/DODM-Final-Project/Demo Instances/inputs_test/"
-explicit_output_folder_location = "C:/Users/fabio/OneDrive/Documents/Studies/Discrete_Optimisation/DODM-Final-Project/Demo Instances/outputs_test/"
+explicit_input_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\inputs_test\\"
+explicit_output_folder_location =str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\outputs_test\\"
 input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
 input_objects, input_links, input_global = import_inputs(explicit_input_folder_location + input_file_names[0])
 run_scenario(input_objects, input_links, input_global, scenario_name = "instance_demo1_N10", rum_lim_minutes = 0.25, disable_costly_constraints = False, force_1_to_catch_a_bus = False)
