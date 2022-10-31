@@ -1,5 +1,5 @@
 
-
+## Example of a scatter search implementation
 
 ### DISTANCE MATRIX
 from hashlib import new
