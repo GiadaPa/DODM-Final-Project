@@ -600,7 +600,7 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
                             
                             md.addConstr((w_vars[j, n] >= expr_a_temp + expr_b_temp + expr_c_temp - expr_d_temp), name = constr_TT1_name_string.format(i,j,n,m))
                             
-                            """Do not delete, this was the previous requirement to make the constraint, but is still a good example to kepp"""
+                            """Do not delete, this was the previous requirement to make the constraint, but is still a good example to keep"""
                             """expression_temp = 0
                             for j in index_nodes_ids:
                                 for m in index_modes_of_transport:
@@ -796,6 +796,7 @@ def run_scenario(input_objects, input_links, input_global, scenario_name = "inst
     
     md.setObjective(objv_time_travelled + objv_fitness_weighting + objv_unfinished_task_penality, GRB.MINIMIZE)
             
+
     """Compilation of model for export (export is used for model interrogation)"""
     md.update()   
     md.write(explicit_output_folder_location + "model_export.lp")
@@ -916,6 +917,8 @@ def export_results(model, input_global, input_objects, input_links, index_person
     #save_values(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, model)
     visualise_results_and_export(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, scenario_name, model, show_fig)
     
+
+
 def visualise_results_and_export(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, scenario_name, model, show_fig):
     
     object_names_list       = ["PEOPLE", "PLACES", "BIKE_STATIONS", "BUS_STOPS"]
@@ -992,6 +995,8 @@ def visualise_results_and_export(input_objects, input_links, input_global, outpu
     if show_fig == True:
         plt.show()
     print_result(scenario_name, output_people_routes, output_people_route_methods, output_people_route_times, model)
+
+ 
     
 def return_component_scores(model):
     index_person_ids        = model._index_person_ids
