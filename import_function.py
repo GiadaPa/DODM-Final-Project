@@ -13,8 +13,6 @@ import numpy as np
 import copy
 
 
-### Sets and parameters
-
 ## variables beginning in "input_request" denote the type of expected inputs, this is fed through methods XXX to dynamically read the input file
 input_request_objects = {
     "PEOPLE" : {
@@ -92,23 +90,12 @@ input_request_global = {
     }
     
 
-# Open text file for reading data.
-#txtFile = open('Demo Instances/instance_demo1_N10.txt','r')
-
-
-# Function definition to transform an element to hours by converting it to integer (eventually back to string)
-def to_hours(element):
-    h = int(element)/60
-    #toStr = str(int(h))    #Convert back to string
-    return h
-
-
-
-# Dictionary definition of the horizon
+# Dictionary definitions
 data_inputs = {}
 input_objects = {}
 input_links = {}
 input_global = {}
+
 
 #update_data_input(data_input_table, value, format)
 #def update_data_input(data_input_table, value_name, value, format, object_name = "None", objects = input_objects.keys()):
@@ -227,16 +214,10 @@ def import_inputs(explicit_input_file_location = 'Demo Instances/instance_demo1_
                     if lines[current_line] == "\n":
                         reading_class_instance = False
                         current_line += 1
-                        break
-                
-                    
+                        break                 
                     
                 ID = np.nan
-                    
-                    
-                    
-                    
-                
+                                    
                 print("Hello")
                     
             #if not in input_request_links
@@ -294,12 +275,11 @@ def import_inputs(explicit_input_file_location = 'Demo Instances/instance_demo1_
             
             else:
                 current_line += 1
-                
-                
-                
+                            
     return input_objects, input_links, input_global
     
-                    
+
+                   
 def update_input_table(input_table, input_value, input_name, input_format, object_class_name = np.nan, ID = np.nan):
     
     #create new object instance if required for object
@@ -330,20 +310,3 @@ def update_input_table(input_table, input_value, input_name, input_format, objec
 
 
 #input_objects, input_links, input_global = import_inputs()
-
-
-print("Hello")
-
-people = []     #Declare an empty list for the people.
-
-### Initialization of the problem
-
-### Variables
-
-### Constraints
-
-### Objective function
-
-### Resolution
-# Calling the solver
-# Printing an optimal solution (if it has been found)
