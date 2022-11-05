@@ -26,10 +26,14 @@ import pathlib
 exec(open("import_function.py").read())
 exec(open("run_scenario.py").read())
 
+if len(sys.argv) == 1:
+    rum_lim_minutes = 30
+else:
+    rum_lim_minutes = sys.argv[1]
 
 
-explicit_input_folder_location  = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\inputs_test\\"
-explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\outputs_test\\"
+explicit_input_folder_location  = str(pathlib.Path(__file__).parent.resolve()) + "\\inputs\\"
+explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\outputs\\"
 input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
 
 #this will loop all the inputs we have put in the folder
@@ -40,7 +44,7 @@ for scenario_input_file in input_file_names:
     print(scenario_input_file + " start at: " + str(datetime.now()) + str(count) + " / " + str(len(input_file_names)))
     run_scenario(input_objects, input_links, input_global,
                  scenario_name = scenario_input_file, 
-                 rum_lim_minutes = 1, 
+                 rum_lim_minutes = rum_lim_minutes, 
                  disable_costly_constraints = False, 
                  force_1_to_catch_a_bus = False,
                  show_fig = False)

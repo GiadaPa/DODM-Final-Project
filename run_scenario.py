@@ -37,8 +37,8 @@ from import_function import import_inputs
 
 print("Start at: " + str(datetime.now()))
 exec(open("import_function.py").read())
-explicit_input_folder_location  = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\inputs_test\\"
-explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\outputs_test\\"
+explicit_input_folder_location  = str(pathlib.Path(__file__).parent.resolve()) + "\\inputs\\"
+explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\outputs\\"
 input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
 
 
@@ -925,7 +925,7 @@ def visualise_results_and_export(input_objects, input_links, input_global, outpu
     location_prefix_list    = ["HOME",  "PLACE", "BIKE_STATION", "BUS_STOP"]
     places_x_coords = dict()
     places_y_coords = dict()
-    explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\outputs_test\\"
+    explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\outputs\\"
     
     for object_name, prefix in zip(object_names_list, location_prefix_list):
         lon_string = prefix + "_LON"
@@ -1024,7 +1024,7 @@ def return_component_scores(model):
     
     
 def print_result(scenario_name, output_people_routes, output_people_route_methods, output_people_route_times, model):
-    explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\outputs_test\\"
+    explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\outputs\\"
     w_vars        = model._w_vars
     y_vars        = model._y_vars
     input_objects = model._input_objects
@@ -1097,8 +1097,8 @@ def convert_mins_to_time(input_minutes):
 #This is a temporary section to allow for the inporting of inputs and running of the model function (above) 
 #for a single run for the proposes of development
 
-explicit_input_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\inputs_test\\"
-explicit_output_folder_location =str(pathlib.Path(__file__).parent.resolve()) + "\\Demo Instances\\outputs_test\\"
+explicit_input_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\inputs\\"
+explicit_output_folder_location =str(pathlib.Path(__file__).parent.resolve()) + "\\outputs\\"
 input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
 input_objects, input_links, input_global = import_inputs(explicit_input_folder_location + input_file_names[0])
 run_scenario(input_objects, input_links, input_global, scenario_name = "instance_demo1_N10", rum_lim_minutes = 0.25, disable_costly_constraints = False, force_1_to_catch_a_bus = False)
