@@ -35,6 +35,7 @@ else:
 explicit_input_folder_location  = str(pathlib.Path(__file__).parent.resolve()) + "\\inputs\\"
 explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\outputs\\"
 input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
+run_outputs = []
 
 #this will loop all the inputs we have put in the folder
 count = 0
@@ -48,3 +49,5 @@ for scenario_input_file in input_file_names:
                  disable_costly_constraints = False, 
                  force_1_to_catch_a_bus = False,
                  show_fig = False)
+    
+
