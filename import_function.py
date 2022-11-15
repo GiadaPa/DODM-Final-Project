@@ -6,8 +6,6 @@
 
 ### Libraries
 from cmath import isnan
-import gurobipy as gp
-from gurobipy import *
 import pandas as pd
 import numpy as np
 import copy
@@ -285,21 +283,17 @@ def update_input_table(input_table, input_value, input_name, input_format, objec
     #create new object instance if required for object
     if not pd.isnull(ID) and not ID in input_table[object_class_name]:
         input_table[object_class_name][ID] = {}
+    if input_format == "Int":
+        input_var = int(input_value)
+    elif input_format == "ID":
+        input_var = int(input_value)
+    elif input_format == "Float":
+        input_var = float(input_value)
+    elif input_format == "String":
+        input_var = input_value
+    else:
+        raise Exception("FG NOTE - Error: format ~" + input_format + "~ not found")
         
-    
-    match input_format:
-        case "Int":
-            input_var = int(input_value)
-        case "ID":
-            input_var = int(input_value)
-        case "Float":
-            input_var = float(input_value)
-        case "String":
-            input_var = input_value
-        case _:
-            raise Exception("Error: format " + input_format + " not found")
-            
-
     if pd.isnull(ID):
         input_table[input_name] = input_var
     else:

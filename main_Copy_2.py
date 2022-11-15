@@ -8,6 +8,19 @@
 # two incident edges.  Solutions to this model may contain subtours -
 # tours that don't visit every city.  The lazy constraint callback
 # adds new constraints to cut them off.
+
+import sys
+import math
+import random
+from itertools import combinations
+#from import_function import import_inputs
+#from run_scenario import run_scenario
+from os import listdir
+from os.path import isfile, join
+from datetime import datetime
+import pathlib
+#exec(open("import_function.py").read())
+#exec(open("run_scenario.py").read())
 import sys
 import math
 import random
@@ -30,7 +43,6 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import pickle
 
-from import_function import import_inputs
 
 """Temporary Section"""
 #This section of code will allow the user to work on this file running a single experiment
@@ -41,6 +53,303 @@ from import_function import import_inputs
 print("Start at: " + str(datetime.now()))
 exec(open("import_function.py").read())
 
+
+from cmath import isnan
+import pandas as pd
+import numpy as np
+import copy
+
+
+## variables beginning in "input_request" denote the type of expected inputs, this is fed through methods XXX to dynamically read the input file
+input_request_objects = {
+    "PEOPLE" : {
+        "PERSON_ID" : "ID",
+        "HOME_ID" : "Int",
+        "HOME_LAT" : "Float",
+        "HOME_LON" : "Float",
+        "BUDGET" : "Int",
+        "MAX_NB_CHANGES_TRANSPORT" : "Int"},
+
+    "PLACES" : {
+        "PLACE_ID" : "ID",
+        "PLACE_LAT" : "Float",
+        "PLACE_LON" : "Float",
+        "MAX_NB_PEOPLE" : "Int"},
+    
+    "TASKS" : {
+        "TASK_ID" : "ID",
+        "PERSON_ID" : "Int",
+        "PLACE_ID" : "Int",
+        "COST" : "Int",
+        "SERVICE_TIME" : "Int",
+        "START_TIME" : "Int",
+        "END_TIME" : "Int",
+        "IS_SPECIAL" : "Int",
+        "EXTRA_SERVICE_TIME" : "Int",
+        "PENALTY" : "Int"},
+    
+    "BIKE_STATIONS" : {
+        "BIKE_STATION_ID" : "ID",
+        "BIKE_STATION_LAT" : "Float",
+        "BIKE_STATION_LON" : "Float",
+        "NB_AVAILABLE_BIKES" : "Int",
+        "NB_FREE_SPOTS" : "Int"},
+    
+    "BUS_LINES" : {
+        "LINE_ID" : "ID",
+        "START_TIME" : "Int",
+        "FREQUENCY" : "Int",
+        "MAX_NB_PEOPLE" : "Int"},
+    
+    "BUS_STOPS" : {
+        "BUS_STOP_ID" : "ID",
+        "BUS_STOP_LAT" : "Float",
+        "BUS_STOP_LON" : "Float"}
+    }
+
+input_request_links = {
+    "BUS_STOP_TO_LINE" : {
+        "BUS_STOP_ID" : "Int",
+        "BUS_LINE_ID" : "Int"},
+    
+    "NODE_TRAVEL_INFO" : {
+        "NODE_ID" : "ID",
+        "NODE_ID" : "ID",
+        "MODE" : "String",
+        "DISTANCE" : "Float",
+        "TIME" : "Float",
+        "FITNESS" : "Float"}
+    }
+
+#tuples are used here because they are ordered
+input_request_global = {
+    "HORIZON" : [
+        ("START" , "Int"),
+        ("END" , "Int")],
+    
+    "MODES_OF_TRANSPORTATION" : [
+        ("ID" , "String"),
+        ("Name", "String")],
+    
+    "COST_BIKE_PER_MINUT" : "Float",
+    "COST_BUS_PER_RIDE" : "Float"  
+    
+    }
+    
+
+# Dictionary definitions
+data_inputs = {}
+input_objects = {}
+input_links = {}
+input_global = {}
+
+
+#update_data_input(data_input_table, value, format)
+#def update_data_input(data_input_table, value_name, value, format, object_name = "None", objects = input_objects.keys()):
+
+
+# Function read all information in the input file
+# Method reads first line of each paragraph to understand which class the input belongs to, 
+# then uses/references the input_request dictionaries to understand the expect data and format within that paragraph
+#def import_inputs(input_objects = input_objects, input_links = input_links, input_global = input_global):
+def import_inputs(explicit_input_file_location = 'inputs/instance_demo1_N10.txt'):
+    txtFile = open(explicit_input_file_location,'r')
+    input_objects = {}
+    input_links = {}
+    input_global = {}
+    
+    input_request_names = list(input_request_objects.keys()) + list(input_request_global.keys())
+    with txtFile as f:
+        lines = f.readlines()
+        line_qty = len(lines)
+        currently_reading = True
+        current_line = 0
+        while currently_reading == True:
+            
+            #terminate loop
+            if current_line >= line_qty:
+                currently_reading = False
+                break
+            
+            #skip blank lines
+            if lines[current_line] == "\n":
+                current_line += 1
+                continue
+                        
+            #determine if paragraph is the start of a new date point and act accordingly
+            # if input in input_request_links
+            if lines[current_line].split()[0] == "BUS_STOP_ID"  and lines[current_line].split()[1] == "BUS_LINE_ID":
+                
+                current_class_name = "BUS_STOP_TO_LINE"
+                input_links[current_class_name] = {}
+                reading_current_class = True
+                current_line += 1
+                
+                while reading_current_class == True:
+                        
+                    #detect if the next class has arrived
+                    if lines[current_line].split()[0] in input_request_names or (lines[current_line].split()[0] == "BUS_STOP_ID"  and lines[current_line].split()[1] == "BUS_LINE_ID") or (lines[current_line].split()[0] == "NODE_ID"    and lines[current_line].split()[1] == "NODE_ID"):
+                        reading_current_class = False
+                        continue
+                    
+                    link_name = (lines[current_line].split()[0], lines[current_line].split()[1])
+                    input_links[current_class_name][link_name] = 0
+                    
+                    try:
+                        if lines[current_line].split()[2] == "(DEPOSIT)":
+                            input_links[current_class_name][link_name] = 1
+                    except IndexError as err:
+                        a = 1
+                        del a
+                
+                    current_line += 1
+                    
+                    if lines[current_line] == "\n":
+                        reading_class_instance = False
+                        current_line += 1
+                        break
+                
+            elif lines[current_line].split()[0] == "NODE_ID"    and lines[current_line].split()[1] == "NODE_ID":
+                current_class_name = "NODE_TRAVEL_INFO"
+                input_links[current_class_name] = {}
+                reading_current_class = True
+                current_line += 1
+                while reading_current_class == True:
+                        
+                    #detect if the next class has arrived
+                    if lines[current_line].split()[0] in input_request_names or (lines[current_line].split()[0] == "BUS_STOP_ID"  and lines[current_line].split()[1] == "BUS_LINE_ID") or (lines[current_line].split()[0] == "NODE_ID"    and lines[current_line].split()[1] == "NODE_ID"):
+                        reading_current_class = False
+                        continue
+                
+                    link_ID = (int(lines[current_line].split()[0]),int(lines[current_line].split()[1]),lines[current_line].split()[2])
+                    input_dict = { "DISTANCE" : float(lines[current_line].split()[3]), "TIME" : float(lines[current_line].split()[4]), "FITNESS" : float(lines[current_line].split()[5])}
+                    input_links[current_class_name][link_ID] = input_dict
+                    
+                    current_line += 1
+                    if current_line >= line_qty:
+                        reading_current_class = False
+                        currently_reading = False
+                        break
+                    
+                    
+                    if lines[current_line] == "\n":
+                        reading_class_instance = False
+                        currently_reading == False
+                        current_line += 1
+                        break
+                
+                
+            elif lines[current_line].split()[0] == "MODES_OF_TRANSPORTATION":
+                
+                current_class_name = copy.deepcopy(lines[current_line].split()[0])
+                input_global[current_class_name] = {}
+                reading_current_class = True
+                ID = 1
+                current_line += 1
+                
+                while reading_current_class == True:
+                        
+                    #detect if the next class has arrived
+                    if lines[current_line].split()[0] in input_request_names or (lines[current_line].split()[0] == "BUS_STOP_ID"  and lines[current_line].split()[1] == "BUS_LINE_ID") or (lines[current_line].split()[0] == "NODE_ID"    and lines[current_line].split()[1] == "NODE_ID"):
+                        reading_current_class = False
+                        continue
+                    
+                    input_global[current_class_name][ID] = lines[current_line].split()[1]
+                    ID += 1
+                    current_line += 1
+                    
+                    if lines[current_line] == "\n":
+                        reading_class_instance = False
+                        current_line += 1
+                        break                 
+                    
+                ID = np.nan
+                                    
+                print("Hello")
+                    
+            #if not in input_request_links
+            elif lines[current_line].split()[0] in input_request_names:
+                # if input in input_request_objects
+                if lines[current_line].split()[0] in input_request_objects.keys():
+                    
+                    current_class_name = copy.deepcopy(lines[current_line].split()[0])
+                    input_class = input_request_objects[lines[current_line].split()[0]]
+                    reading_current_class = True
+                    input_objects[lines[current_line].split()[0]] = {}
+                    current_line += 1
+                    
+                    #loop for reading all values of class X                    
+                    while reading_current_class == True:
+                        
+                        #detect if the next class has arrived
+                        
+                        if lines[current_line].split()[0] in input_request_names or (lines[current_line].split()[0] == "BUS_STOP_ID"  and lines[current_line].split()[1] == "BUS_LINE_ID") or (lines[current_line].split()[0] == "NODE_ID"    and lines[current_line].split()[1] == "NODE_ID"):
+                            reading_current_class = False
+                            continue
+                        
+                        #detect if there is an ID for class
+                        try:
+                            if input_class[lines[current_line].split()[0]] == "ID":
+                                ID = int(lines[current_line].split()[1])
+                            else:
+                                ID = np.nan    
+                        except IndexError as err:
+                            ID = np.nan
+                        
+                        #read instance of class
+                        reading_class_instance = True
+                        while reading_class_instance == True:
+                            #check for end of class instance
+                            if lines[current_line] == "\n":
+                                reading_class_instance = False
+                                current_line += 1
+                                continue
+                            
+                            input_objects = update_input_table(input_objects, input_value=lines[current_line].split()[1], input_name=lines[current_line].split()[0], input_format = input_class[lines[current_line].split()[0]], object_class_name=current_class_name , ID = ID)
+                            current_line += 1
+                        
+                # if input in input_request_global
+                elif lines[current_line].split()[0] in input_request_global.keys():
+                    input_class = input_request_global[lines[current_line].split()[0]]
+                    if not isinstance(input_class, list):
+                        #input_global[lines[current_line].split()[0]] = lines[current_line].split()[1]
+                        input_global     = update_input_table(input_global, input_value=lines[current_line].split()[1], input_name=lines[current_line].split()[0], input_format = input_class)
+                    else:
+                        for key, i in zip(input_class, range(1, len(input_class)+1)):
+                            #input_global[key] = lines[current_line].split()[i]
+                            input_global = update_input_table(input_global, input_value=lines[current_line].split()[i], input_name=key[0], input_format = key[1])
+                    current_line += 1    
+            
+            else:
+                current_line += 1
+                            
+    return input_objects, input_links, input_global
+    
+
+                   
+def update_input_table(input_table, input_value, input_name, input_format, object_class_name = np.nan, ID = np.nan):
+    
+    #create new object instance if required for object
+    if not pd.isnull(ID) and not ID in input_table[object_class_name]:
+        input_table[object_class_name][ID] = {}
+    if input_format == "Int":
+        input_var = int(input_value)
+    elif input_format == "ID":
+        input_var = int(input_value)
+    elif input_format == "Float":
+        input_var = float(input_value)
+    elif input_format == "String":
+        input_var = input_value
+    else:
+        raise Exception("FG NOTE - Error: format ~" + input_format + "~ not found")
+        
+    if pd.isnull(ID):
+        input_table[input_name] = input_var
+    else:
+        input_table[object_class_name][int(ID)][input_name] = input_var
+    
+    return input_table
+                    
 
 
 
@@ -1115,24 +1424,39 @@ def convert_mins_to_time(input_minutes):
     return output_a + ":" + output_b
     
 
-"""Temporary section"""
-#This is a temporary section to allow for the inporting of inputs and running of the model function (above) 
-#for a single run for the proposes of development
-if __name__ == "__main__":
-    explicit_input_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\inputs\\"
-    explicit_output_folder_location =str(pathlib.Path(__file__).parent.resolve()) + "\\outputs\\"
-    input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
-    input_objects, input_links, input_global = import_inputs(explicit_input_folder_location + input_file_names[0])
-    run_scenario(input_objects, input_links, input_global, scenario_name = "instance_demo1_N10", rum_lim_minutes = 0.25, disable_costly_constraints = False, force_1_to_catch_a_bus = False)
-    print("")
-#save_file                   = load_values()
-#
-#input_global                = save_file["input_global"]
-#input_objects               = save_file["input_objects"]
-#input_links                 = save_file["input_links"]
-#output_people_routes        = save_file["output_people_routes"]
-#output_people_route_methods = save_file["output_people_route_methods"]
-#output_people_route_times   = save_file["output_people_route_times"]
-#model                       = save_file["model"]
-#
-#visualise_results_and_export(input_objects, input_links, input_global, output_people_routes, output_people_route_methods, output_people_route_times, "instance_demo1_N10", model)
+if len(sys.argv) == 1:
+    explicit_input_folder_location  = str(pathlib.Path(__file__).parent.resolve()) + "\\inputs\\"
+    explicit_output_folder_location = str(pathlib.Path(__file__).parent.resolve()) + "\\outputs\\"
+    rum_lim_minutes = 1
+else:
+    explicit_input_folder_location  = str(pathlib.Path(sys.argv[0]).parent) + "\\inputs\\"
+    explicit_output_folder_location = str(pathlib.Path(sys.argv[0]).parent) + "\\outputs\\"
+    rum_lim_minutes = float(sys.argv[1])
+input_file_names = [f for f in listdir(explicit_input_folder_location) if isfile(join(explicit_input_folder_location, f))]
+run_outputs = []
+
+#this will loop all the inputs we have put in the folder
+count = 0
+for scenario_input_file in input_file_names:
+    input_objects, input_links, input_global = import_inputs(explicit_input_folder_location + scenario_input_file)
+    count += 1
+    print(scenario_input_file + " start at: " + str(datetime.now()) + " | " + str(count) + " / " + str(len(input_file_names)))
+    run_outputs_single = run_scenario(input_objects, input_links, input_global,
+                 scenario_name = scenario_input_file, 
+                 rum_lim_minutes = rum_lim_minutes, 
+                 disable_costly_constraints = False, 
+                 force_1_to_catch_a_bus = False,
+                 show_fig = False,
+                 return_resolution_stats = True)
+    run_outputs += [run_outputs_single]
+
+with open(explicit_output_folder_location + 'resolution_stats_output.txt', 'w') as f:
+        """Resolution Stats"""
+        f.write('Resolution Stats')
+        f.write('\n')
+        f.write('run_id score upper_bound run_time(s) sol_count')
+        f.write('\n')
+        for id, scenario in zip(range(len(run_outputs)), run_outputs):
+            f.write(str(id) + " ")
+            f.write(scenario[0])
+            f.write('\n')
